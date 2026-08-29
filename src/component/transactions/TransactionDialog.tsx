@@ -5,7 +5,7 @@ import {
     Type,
     FileText,
 } from "lucide-react"
-
+import { toast } from "sonner"
 import { useEffect } from "react"
 
 import {
@@ -118,38 +118,70 @@ function TransactionDialog({
     }
 
 
-    const onSubmit: SubmitHandler<TransactionFormData> =
-        async (data) => {
+    const onSubmit = async (
+        data: TransactionFormData
+    ) => {
 
-            try {
+        try {
 
-                if (isEditing && transaction) {
+            if (
+                isEditing &&
+                transaction
+            ) {
 
-                    await updateTransaction(
-                        transaction.id,
-                        data
-                    )
+                await updateTransaction(
+                    transaction.id,
+                    data
+                )
 
-                } else {
+                toast.success(
+                    "Transaction updated",
+                    {
+                        description:
+                            `${data.title} was updated successfully.`,
+                    }
+                )
 
-                    await createTransaction(
-                        data
-                    )
+            } else {
 
-                }
+                await createTransaction(
+                    data
+                )
 
-                onSuccess()
-                onClose()
-
-            } catch (error) {
-
-                console.error(
-                    "Transaction save failed:",
-                    error
+                toast.success(
+                    "Transaction added",
+                    {
+                        description:
+                            `${data.title} was added successfully.`,
+                    }
                 )
 
             }
+
+            onSuccess()
+
+            onClose()
+
+        } catch (error) {
+
+            console.error(
+                "Transaction save failed:",
+                error
+            )
+
+            toast.error(
+                isEditing
+                    ? "Update failed"
+                    : "Couldn't add transaction",
+                {
+                    description:
+                        "Something went wrong. Please try again.",
+                }
+            )
+
         }
+
+    }
 
 
     return (
@@ -241,6 +273,7 @@ function TransactionDialog({
 
                         <input
                             type="number"
+                            min="0.01"
                             step="0.01"
                             {...register("amount", {
                                 valueAsNumber: true,
