@@ -10,11 +10,10 @@ import { useEffect } from "react"
 
 import {
     useForm,
+    type SubmitHandler,
 } from "react-hook-form"
 
-import {
-    zodResolver,
-} from "@hookform/resolvers/zod"
+import { zodResolver } from "@hookform/resolvers/zod"
 
 import {
     transactionSchema,
@@ -31,13 +30,9 @@ import { Button } from "@/components/ui/button"
 
 
 interface TransactionDialogProps {
-
     open: boolean
-
     onClose: () => void
-
     transaction?: Transaction | null
-
     onSuccess: () => void
 }
 
@@ -62,8 +57,7 @@ function TransactionDialog({
                                onSuccess,
                            }: TransactionDialogProps) {
 
-    const isEditing =
-        Boolean(transaction)
+    const isEditing = Boolean(transaction)
 
 
     const {
@@ -75,22 +69,15 @@ function TransactionDialog({
             isSubmitting,
         },
     } = useForm<TransactionFormData>({
-
-        resolver: zodResolver(
-            transactionSchema
-        ),
+        resolver: zodResolver(transactionSchema),
 
         defaultValues: {
+            title: transaction?.title ?? "",
+            amount: transaction?.amount ?? undefined,
+            type: transaction?.type ?? "EXPENSE",
 
-            title:
-                transaction?.title ?? "",
-
-            amount:
-                transaction?.amount ?? undefined,
-
-            type:
-                transaction?.type ?? "EXPENSE",
-
+            // Backend returns an object.
+            // Form needs the category name as a string.
             category:
                 transaction?.category ?? "Food",
 
@@ -110,24 +97,13 @@ function TransactionDialog({
         }
 
         reset({
-
-            title:
-                transaction?.title ?? "",
-
-            amount:
-                transaction?.amount ?? undefined,
-
-            type:
-                transaction?.type ?? "EXPENSE",
-
-            category:
-                transaction?.category ?? "Food",
-
+            title: transaction?.title ?? "",
+            amount: transaction?.amount ?? undefined,
+            type: transaction?.type ?? "EXPENSE",
+            category: transaction?.category ?? "Food",
             date:
                 transaction?.date ??
-                new Date()
-                    .toISOString()
-                    .split("T")[0],
+                new Date().toISOString().split("T")[0],
         })
 
     }, [
@@ -142,41 +118,38 @@ function TransactionDialog({
     }
 
 
-    const onSubmit = async (
-        data: TransactionFormData
-    ) => {
+    const onSubmit: SubmitHandler<TransactionFormData> =
+        async (data) => {
 
-        try {
+            try {
 
-            if (isEditing && transaction) {
+                if (isEditing && transaction) {
 
-                await updateTransaction(
-                    transaction.id,
-                    data
-                )
+                    await updateTransaction(
+                        transaction.id,
+                        data
+                    )
 
-            } else {
+                } else {
 
-                await createTransaction(
-                    data
+                    await createTransaction(
+                        data
+                    )
+
+                }
+
+                onSuccess()
+                onClose()
+
+            } catch (error) {
+
+                console.error(
+                    "Transaction save failed:",
+                    error
                 )
 
             }
-
-            onSuccess()
-
-            onClose()
-
-        } catch (error) {
-
-            console.error(
-                "Transaction save failed:",
-                error
-            )
-
         }
-
-    }
 
 
     return (
@@ -221,9 +194,7 @@ function TransactionDialog({
                 {/* FORM */}
 
                 <form
-                    onSubmit={handleSubmit(
-                        onSubmit
-                    )}
+                    onSubmit={handleSubmit(onSubmit)}
                     className="space-y-5 p-6"
                 >
 
@@ -271,13 +242,9 @@ function TransactionDialog({
                         <input
                             type="number"
                             step="0.01"
-                            {...register(
-                                "amount",
-                                {
-                                    valueAsNumber:
-                                        true,
-                                }
-                            )}
+                            {...register("amount", {
+                                valueAsNumber: true,
+                            })}
                             placeholder="0.00"
                             className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-violet-400/50 focus:bg-white/[0.05]"
                         />
@@ -357,9 +324,7 @@ function TransactionDialog({
                         </label>
 
                         <select
-                            {...register(
-                                "category"
-                            )}
+                            {...register("category")}
                             className="h-11 w-full rounded-xl border border-white/10 bg-[#15171d] px-4 text-sm text-white outline-none focus:border-violet-400/50"
                         >
 
@@ -455,5 +420,6 @@ function TransactionDialog({
         </div>
     )
 }
+
 
 export default TransactionDialog

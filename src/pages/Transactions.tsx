@@ -162,7 +162,7 @@ function Transactions() {
             transactions
                 .map(
                     (transaction) =>
-                        transaction.category?.name
+                        transaction.category
                 )
                 .filter(
                     (
@@ -204,7 +204,7 @@ function Transactions() {
 
                         const categoryName =
                             transaction.category
-                                ?.name ??
+                                 ??
                             ""
 
 
@@ -1397,7 +1397,7 @@ function Transactions() {
 
                                     const categoryName =
                                         transaction.category
-                                            ?.name ??
+                                             ??
                                         "Other"
 
                                     const categoryStyle =
