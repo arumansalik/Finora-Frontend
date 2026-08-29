@@ -134,17 +134,24 @@ function Transactions() {
                     ],
                 })
 
-            },
-
-            onError: (error) => {
-
-                console.error(
-                    "Failed to delete transaction:",
-                    error
+                toast.success(
+                    "Transaction deleted",
+                    {
+                        description:
+                            "The transaction was removed successfully.",
+                    }
                 )
 
-                window.alert(
-                    "Failed to delete transaction. Please try again."
+            },
+
+            onError: () => {
+
+                toast.error(
+                    "Delete failed",
+                    {
+                        description:
+                            "We couldn't delete the transaction. Please try again.",
+                    }
                 )
 
             },
