@@ -14,7 +14,10 @@ export interface Transaction {
     title: string
     amount: number
     type: "INCOME" | "EXPENSE"
-    category: string
+    category: {
+        id: number
+        name: string
+    }
     date: string
 }
 
