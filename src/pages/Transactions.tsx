@@ -765,12 +765,22 @@ function Transactions() {
                         </h1>
 
 
-                        <p className="mt-1 max-w-xl text-sm text-white/35">
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
 
-                            Track, organize and manage every
-                            transaction in one place.
+                            <p className="text-sm text-white/35">
+                                Track, organize and manage every
+                                transaction in one place.
+                            </p>
 
-                        </p>
+                            <span className="hidden text-white/15 sm:inline">
+        •
+    </span>
+
+                            <span className="text-xs font-medium text-white/30">
+        {transactions.length} recorded
+    </span>
+
+                        </div>
 
                     </div>
 
@@ -782,7 +792,7 @@ function Transactions() {
                         className="group w-fit rounded-xl bg-white px-5 text-black shadow-lg shadow-white/5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/90 hover:shadow-xl"
                     >
 
-                        <Plus
+                    <Plus
                             size={17}
                             className="transition-transform duration-300 group-hover:rotate-90"
                         />
