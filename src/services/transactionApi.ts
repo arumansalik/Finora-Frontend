@@ -1,4 +1,13 @@
-import api from "./api"
+import axios from "axios"
+
+const API_URL = "http://localhost:8080/api/transactions"
+
+
+export interface Category {
+    id: number
+    name: string
+}
+
 
 export interface Transaction {
     id: number
@@ -9,6 +18,7 @@ export interface Transaction {
     date: string
 }
 
+
 export interface TransactionRequest {
     title: string
     amount: number
@@ -17,54 +27,90 @@ export interface TransactionRequest {
     date: string
 }
 
-export const getTransactions = async (): Promise<Transaction[]> => {
 
-    const response = await api.get<Transaction[]>(
-        "/transactions"
-    )
+// =====================================================
+// GET ALL TRANSACTIONS
+// =====================================================
 
-    return response.data
-}
+export const getTransactions =
+    async (): Promise<Transaction[]> => {
 
-export const getTransaction = async (
-    id: number
-): Promise<Transaction> => {
+        const response =
+            await axios.get<Transaction[]>(
+                API_URL
+            )
 
-    const response = await api.get<Transaction>(
-        `/transactions/${id}`
-    )
+        return response.data
+    }
 
-    return response.data
-}
 
-export const createTransaction = async (
-    transaction: TransactionRequest
-): Promise<Transaction> => {
+// =====================================================
+// GET ONE TRANSACTION
+// =====================================================
 
-    const response = await api.post<Transaction>(
-        "/transactions",
-        transaction
-    )
+export const getTransaction =
+    async (
+        id: number
+    ): Promise<Transaction> => {
 
-    return response.data
-}
+        const response =
+            await axios.get<Transaction>(
+                `${API_URL}/${id}`
+            )
 
-export const updateTransaction = async (
-    id: number,
-    transaction: TransactionRequest
-): Promise<Transaction> => {
+        return response.data
+    }
 
-    const response = await api.put<Transaction>(
-        `/transactions/${id}`,
-        transaction
-    )
 
-    return response.data
-}
+// =====================================================
+// CREATE TRANSACTION
+// =====================================================
 
-export const deleteTransaction = async (
-    id: number
-): Promise<void> => {
+export const createTransaction =
+    async (
+        transaction: TransactionRequest
+    ): Promise<Transaction> => {
 
-    await api.delete(`/transactions/${id}`)
-}
+        const response =
+            await axios.post<Transaction>(
+                API_URL,
+                transaction
+            )
+
+        return response.data
+    }
+
+
+// =====================================================
+// UPDATE TRANSACTION
+// =====================================================
+
+export const updateTransaction =
+    async (
+        id: number,
+        transaction: TransactionRequest
+    ): Promise<Transaction> => {
+
+        const response =
+            await axios.put<Transaction>(
+                `${API_URL}/${id}`,
+                transaction
+            )
+
+        return response.data
+    }
+
+
+// =====================================================
+// DELETE TRANSACTION
+// =====================================================
+
+export const deleteTransaction =
+    async (
+        id: number
+    ): Promise<void> => {
+
+        await axios.delete(
+            `${API_URL}/${id}`
+        )
+    }
