@@ -15,7 +15,7 @@ import {
     ChevronRight,
     X,
 } from "lucide-react"
-
+import { toast } from "sonner"
 import {
     useMemo,
     useState,
@@ -541,6 +541,10 @@ function Transactions() {
             )
 
             setDialogOpen(true)
+
+            toast.success(
+                "Ready to add a transaction"
+            )
         }
 
 
