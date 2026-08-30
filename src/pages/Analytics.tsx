@@ -9,8 +9,6 @@ import {
 import {
     Area,
     AreaChart,
-    Bar,
-    BarChart,
     CartesianGrid,
     Cell,
     Legend,
@@ -35,8 +33,7 @@ import {
 } from "lucide-react"
 
 import {
-    getTransactions,
-    type Transaction,
+    getTransactions
 } from "@/services/transactionApi"
 
 import {
@@ -366,65 +363,55 @@ function Analytics() {
         useMemo<CategoryData[]>(
             () => {
 
-                const map =
+                const totals =
                     new Map<
                         string,
                         number
                     >()
 
 
-                transactions.forEach(
-                    (
-                        transaction
-                    ) => {
-
-                        if (
-                            transaction.type !==
+                transactions
+                    .filter(
+                        (transaction) =>
+                            transaction.type ===
                             "EXPENSE"
-                        ) {
-                            return
+                    )
+                    .forEach(
+                        (transaction) => {
+
+                            const category =
+                                transaction.category ||
+                                "Other"
+
+
+                            totals.set(
+                                category,
+                                (
+                                    totals.get(
+                                        category
+                                    ) ?? 0
+                                ) +
+                                transaction.amount
+                            )
                         }
-
-
-                        const category =
-                            transaction
-                                .category
-                                 ??
-                            "Other"
-
-
-                        map.set(
-                            category,
-
-                            (
-                                map.get(
-                                    category
-                                ) ??
-                                0
-                            ) +
-                            transaction.amount
-                        )
-
-                    }
-                )
+                    )
 
 
                 const total =
                     Array.from(
-                        map.values()
+                        totals.values()
                     ).reduce(
                         (
                             sum,
                             value
                         ) =>
-                            sum +
-                            value,
+                            sum + value,
                         0
                     )
 
 
                 return Array.from(
-                    map.entries()
+                    totals.entries()
                 )
                     .map(
                         ([
@@ -437,8 +424,7 @@ function Analytics() {
                             value,
 
                             percentage:
-                                total >
-                                0
+                                total > 0
                                     ? (
                                         value /
                                         total
@@ -458,9 +444,7 @@ function Analytics() {
                     )
 
             },
-            [
-                transactions,
-            ]
+            [transactions]
         )
 
 
