@@ -13,11 +13,19 @@ import {
     TrendingDown,
     Sparkles,
 } from "lucide-react"
+import {
+    calculateFinancialHealth,
+} from "@/utils/financialHealth"
+import {
 
+    calculateFinancialInsights,
+} from "@/utils/financialInsights"
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 
 import {
+    Area,
+    AreaChart,
     Bar,
     BarChart,
     CartesianGrid,
@@ -66,6 +74,8 @@ function Dashboard() {
         queryFn: getTransactions,
     })
 
+    console.log("TRANSACTIONS:", transactions)
+
 
     // =====================================================
     // SAVINGS RATE
@@ -78,12 +88,36 @@ function Dashboard() {
         }
 
         return (
-            ((summary.totalIncome - summary.totalExpense) /
-                summary.totalIncome) *
-            100
+            (
+                (summary.totalIncome -
+                    summary.totalExpense) /
+                summary.totalIncome
+            ) * 100
         )
 
     }, [summary])
+
+    const insights =
+        useMemo(
+            () =>
+                calculateFinancialInsights(
+                    transactions
+                ),
+            [transactions]
+        )
+
+    const health =
+        useMemo(
+            () =>
+                calculateFinancialHealth(
+                    insights.totalIncome,
+                    insights.totalExpense
+                ),
+            [
+                insights.totalIncome,
+                insights.totalExpense,
+            ]
+        )
 
 
     // =====================================================
@@ -92,36 +126,107 @@ function Dashboard() {
 
     const categoryData = useMemo(() => {
 
-        const expenses = transactions.filter(
-            (transaction) =>
-                transaction.type === "EXPENSE"
-        )
-
         const totals: Record<string, number> = {}
 
-        expenses.forEach((transaction) => {
+        transactions
+            .filter(
+                (transaction) =>
+                    transaction.type === "EXPENSE"
+            )
+            .forEach(
+                (transaction) => {
 
-            const category =
-                transaction.category || "Other"
+                    const category =
+                        transaction.category ??
+                        "Other"
 
-            totals[category] =
-                (totals[category] || 0) +
-                transaction.amount
-
-        })
+                    totals[category] =
+                        (
+                            totals[category] ??
+                            0
+                        ) +
+                        transaction.amount
+                }
+            )
 
         return Object.entries(totals)
-            .map(([name, value]) => ({
-                name,
-                value,
-            }))
-            .sort((a, b) => b.value - a.value)
+            .map(
+                ([
+                    name,
+                    value,
+                ]) => ({
+                    name,
+                    value,
+                })
+            )
+            .sort(
+                (
+                    a,
+                    b
+                ) =>
+                    b.value -
+                    a.value
+            )
 
     }, [transactions])
 
 
     // =====================================================
-    // CASH FLOW
+    // INCOME / EXPENSE DATA
+    // =====================================================
+
+    const incomeExpenseData = useMemo(() => {
+
+        const income =
+            transactions
+                .filter(
+                    (transaction) =>
+                        transaction.type ===
+                        "INCOME"
+                )
+                .reduce(
+                    (
+                        total,
+                        transaction
+                    ) =>
+                        total +
+                        transaction.amount,
+                    0
+                )
+
+        const expense =
+            transactions
+                .filter(
+                    (transaction) =>
+                        transaction.type ===
+                        "EXPENSE"
+                )
+                .reduce(
+                    (
+                        total,
+                        transaction
+                    ) =>
+                        total +
+                        transaction.amount,
+                    0
+                )
+
+        return [
+            {
+                name: "Income",
+                amount: income,
+            },
+            {
+                name: "Expenses",
+                amount: expense,
+            },
+        ]
+
+    }, [transactions])
+
+
+    // =====================================================
+    // CASH FLOW TIMELINE
     // =====================================================
 
     const cashFlowData = useMemo(() => {
@@ -134,42 +239,66 @@ function Dashboard() {
             }
         > = {}
 
-        transactions.forEach((transaction) => {
+        transactions.forEach(
+            (transaction) => {
 
-            const date = transaction.date
+                const date =
+                    transaction.date
 
-            if (!grouped[date]) {
+                if (!grouped[date]) {
 
-                grouped[date] = {
-                    income: 0,
-                    expense: 0,
+                    grouped[date] = {
+                        income: 0,
+                        expense: 0,
+                    }
                 }
 
+                if (
+                    transaction.type ===
+                    "INCOME"
+                ) {
+
+                    grouped[date].income +=
+                        transaction.amount
+
+                } else {
+
+                    grouped[date].expense +=
+                        transaction.amount
+                }
             }
-
-            if (transaction.type === "INCOME") {
-
-                grouped[date].income +=
-                    transaction.amount
-
-            } else {
-
-                grouped[date].expense +=
-                    transaction.amount
-
-            }
-
-        })
+        )
 
         return Object.entries(grouped)
-            .sort(([a], [b]) =>
-                a.localeCompare(b)
+            .sort(
+                (
+                    a,
+                    b
+                ) =>
+                    a[0].localeCompare(
+                        b[0]
+                    )
             )
-            .map(([date, values]) => ({
-                date,
-                income: values.income,
-                expense: values.expense,
-            }))
+            .map(
+                ([
+                    date,
+                    values,
+                ]) => ({
+
+                    date,
+
+                    income:
+                        values.income,
+
+                    expense:
+                        values.expense,
+
+                    net:
+                        values.income -
+                        values.expense,
+
+                })
+            )
 
     }, [transactions])
 
@@ -179,43 +308,76 @@ function Dashboard() {
     // =====================================================
 
     const getCategoryIcon = (
-        category: string
+        category?: string
     ) => {
 
-        const normalized =
-            category.toLowerCase()
+        const value =
+            (category ?? "").toLowerCase()
 
-        if (normalized.includes("food")) {
-            return <Utensils size={17} />
+        if (
+            value.includes("food") ||
+            value.includes("restaurant")
+        ) {
+
+            return (
+                <Utensils
+                    size={18}
+                />
+            )
         }
 
         if (
-            normalized.includes("travel") ||
-            normalized.includes("transport")
+            value.includes("travel") ||
+            value.includes("transport") ||
+            value.includes("bus")
         ) {
-            return <Bus size={17} />
+
+            return (
+                <Bus
+                    size={18}
+                />
+            )
         }
 
         if (
-            normalized.includes("shopping")
+            value.includes("shopping")
         ) {
-            return <ShoppingBag size={17} />
+
+            return (
+                <ShoppingBag
+                    size={18}
+                />
+            )
         }
 
         if (
-            normalized.includes("salary") ||
-            normalized.includes("income")
+            value.includes("salary") ||
+            value.includes("income")
         ) {
-            return <CircleDollarSign size={17} />
+
+            return (
+                <CircleDollarSign
+                    size={18}
+                />
+            )
         }
 
         if (
-            normalized.includes("bill")
+            value.includes("bill")
         ) {
-            return <Receipt size={17} />
+
+            return (
+                <Receipt
+                    size={18}
+                />
+            )
         }
 
-        return <Wallet size={17} />
+        return (
+            <Wallet
+                size={18}
+            />
+        )
     }
 
 
@@ -237,15 +399,36 @@ function Dashboard() {
                 }
                 : undefined
         )
-
     }
+
+
+    // =====================================================
+    // CURRENT DATE
+    // =====================================================
+
+    const currentDate = useMemo(() => {
+
+        return new Intl.DateTimeFormat(
+            "en-IN",
+            {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+            }
+        ).format(new Date())
+
+    }, [])
 
 
     // =====================================================
     // ERROR STATE
     // =====================================================
 
-    if (summaryError || transactionsError) {
+    if (
+        summaryError ||
+        transactionsError
+    ) {
 
         return (
 
@@ -257,7 +440,9 @@ function Dashboard() {
 
                         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-500/10 text-rose-400">
 
-                            <ArrowDownRight size={24} />
+                            <ArrowDownRight
+                                size={24}
+                            />
 
                         </div>
 
@@ -310,7 +495,7 @@ function Dashboard() {
                         <div className="flex items-center gap-2">
 
                             <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/35">
-                                Friday · August 28, 2026
+                                {currentDate}
                             </p>
 
                         </div>
@@ -324,7 +509,6 @@ function Dashboard() {
                         </p>
 
                     </div>
-
 
                     <Button className="group w-fit rounded-xl bg-white px-4 text-black shadow-lg shadow-white/5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/90 hover:shadow-xl">
 
@@ -353,17 +537,17 @@ function Dashboard() {
                 {/* BALANCE HERO */}
                 {/* ================================================= */}
 
-                <Card className="group relative overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
+                <Card
+                    className="group relative overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
 
-                    {/* Ambient glow */}
+                    <div
+                        className="pointer-events-none absolute -right-32 -top-32 h-80 w-80 rounded-full bg-violet-500/10 blur-3xl transition duration-700 group-hover:bg-violet-500/15"/>
 
-                    <div className="pointer-events-none absolute -right-32 -top-32 h-80 w-80 rounded-full bg-violet-500/10 blur-3xl transition duration-700 group-hover:bg-violet-500/15" />
-
-                    <div className="pointer-events-none absolute -bottom-40 -left-20 h-72 w-72 rounded-full bg-emerald-500/5 blur-3xl" />
+                    <div
+                        className="pointer-events-none absolute -bottom-40 -left-20 h-72 w-72 rounded-full bg-emerald-500/5 blur-3xl"/>
 
 
                     <div className="relative p-7 sm:p-8">
-
 
                         <div className="flex items-start justify-between">
 
@@ -372,7 +556,6 @@ function Dashboard() {
                                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">
                                     Total balance
                                 </p>
-
 
                                 <h2 className="mt-4 text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl">
 
@@ -385,17 +568,18 @@ function Dashboard() {
 
                                 </h2>
 
-
                                 <div className="mt-4 flex flex-wrap items-center gap-2">
 
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/10 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
+                                    <span
+                                        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/10 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
 
-                                        <TrendingUp size={13} />
+                                        <TrendingUp
+                                            size={13}
+                                        />
 
                                         Healthy
 
                                     </span>
-
 
                                     <span className="text-xs text-white/30">
                                         Current available balance
@@ -406,9 +590,12 @@ function Dashboard() {
                             </div>
 
 
-                            <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-3.5 text-white shadow-xl shadow-black/10">
+                            <div
+                                className="rounded-2xl border border-white/10 bg-white/[0.05] p-3.5 text-white shadow-xl shadow-black/10">
 
-                                <Wallet size={22} />
+                                <Wallet
+                                    size={22}
+                                />
 
                             </div>
 
@@ -454,6 +641,7 @@ function Dashboard() {
 
                                         <Bar
                                             dataKey="income"
+                                            name="Income"
                                             fill="#34d399"
                                             radius={[
                                                 6,
@@ -465,6 +653,7 @@ function Dashboard() {
 
                                         <Bar
                                             dataKey="expense"
+                                            name="Expenses"
                                             fill="#fb7185"
                                             radius={[
                                                 6,
@@ -480,10 +669,9 @@ function Dashboard() {
 
                             ) : (
 
-                                <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
-
+                                <div
+                                    className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
                                     No cash-flow data yet.
-
                                 </div>
 
                             )}
@@ -504,7 +692,8 @@ function Dashboard() {
 
                     {/* INCOME */}
 
-                    <Card className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
+                    <Card
+                        className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
 
                         <div className="flex items-center justify-between">
 
@@ -512,9 +701,12 @@ function Dashboard() {
                                 Income
                             </p>
 
-                            <div className="rounded-xl border border-emerald-400/10 bg-emerald-400/10 p-2.5 text-emerald-400">
+                            <div
+                                className="rounded-xl border border-emerald-400/10 bg-emerald-400/10 p-2.5 text-emerald-400">
 
-                                <ArrowUpRight size={17} />
+                                <ArrowUpRight
+                                    size={17}
+                                />
 
                             </div>
 
@@ -550,7 +742,8 @@ function Dashboard() {
 
                     {/* EXPENSE */}
 
-                    <Card className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
+                    <Card
+                        className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
 
                         <div className="flex items-center justify-between">
 
@@ -560,7 +753,9 @@ function Dashboard() {
 
                             <div className="rounded-xl border border-rose-400/10 bg-rose-400/10 p-2.5 text-rose-400">
 
-                                <ArrowDownRight size={17} />
+                                <ArrowDownRight
+                                    size={17}
+                                />
 
                             </div>
 
@@ -596,7 +791,8 @@ function Dashboard() {
 
                     {/* SAVINGS */}
 
-                    <Card className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
+                    <Card
+                        className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
 
                         <div className="flex items-center justify-between">
 
@@ -604,9 +800,12 @@ function Dashboard() {
                                 Savings rate
                             </p>
 
-                            <div className="rounded-xl border border-violet-400/10 bg-violet-400/10 p-2.5 text-violet-400">
+                            <div
+                                className="rounded-xl border border-violet-400/10 bg-violet-400/10 p-2.5 text-violet-400">
 
-                                <Sparkles size={17} />
+                                <Sparkles
+                                    size={17}
+                                />
 
                             </div>
 
@@ -646,9 +845,12 @@ function Dashboard() {
                 <div className="grid gap-6 xl:grid-cols-3">
 
 
+                    {/* ================================================= */}
                     {/* CASH FLOW */}
+                    {/* ================================================= */}
 
-                    <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl xl:col-span-2">
+                    <Card
+                        className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl xl:col-span-2">
 
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
@@ -673,10 +875,9 @@ function Dashboard() {
                             </div>
 
 
-                            <button className="w-fit rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-medium text-white/50 transition hover:border-white/20 hover:text-white">
-
+                            <button
+                                className="w-fit rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-medium text-white/50 transition hover:border-white/20 hover:text-white">
                                 August 2026
-
                             </button>
 
                         </div>
@@ -691,9 +892,8 @@ function Dashboard() {
                                     height="100%"
                                 >
 
-                                    <BarChart
+                                    <AreaChart
                                         data={cashFlowData}
-                                        barGap={5}
                                         margin={{
                                             top: 5,
                                             right: 5,
@@ -713,8 +913,12 @@ function Dashboard() {
                                                 fill: "#71717a",
                                                 fontSize: 11,
                                             }}
-                                            tickFormatter={(value) =>
-                                                value.slice(5)
+                                            tickFormatter={(
+                                                value
+                                            ) =>
+                                                String(
+                                                    value
+                                                ).slice(5)
                                             }
                                             axisLine={false}
                                             tickLine={false}
@@ -725,7 +929,9 @@ function Dashboard() {
                                                 fill: "#71717a",
                                                 fontSize: 11,
                                             }}
-                                            tickFormatter={(value) =>
+                                            tickFormatter={(
+                                                value
+                                            ) =>
                                                 `₹${value}`
                                             }
                                             axisLine={false}
@@ -745,42 +951,51 @@ function Dashboard() {
                                                 color: "#a1a1aa",
                                                 marginBottom: "6px",
                                             }}
+                                            formatter={(
+                                                value,
+                                                name
+                                            ) => [
+                                                `₹${Number(
+                                                    value
+                                                ).toLocaleString(
+                                                    "en-IN"
+                                                )}`,
+                                                name ===
+                                                "income"
+                                                    ? "Income"
+                                                    : "Expenses",
+                                            ]}
                                         />
 
-                                        <Bar
+                                        <Area
+                                            type="monotone"
                                             dataKey="income"
                                             name="Income"
                                             fill="#34d399"
-                                            radius={[
-                                                5,
-                                                5,
-                                                0,
-                                                0,
-                                            ]}
+                                            fillOpacity={0.15}
+                                            stroke="#34d399"
+                                            strokeWidth={2}
                                         />
 
-                                        <Bar
+                                        <Area
+                                            type="monotone"
                                             dataKey="expense"
                                             name="Expenses"
                                             fill="#fb7185"
-                                            radius={[
-                                                5,
-                                                5,
-                                                0,
-                                                0,
-                                            ]}
+                                            fillOpacity={0.15}
+                                            stroke="#fb7185"
+                                            strokeWidth={2}
                                         />
 
-                                    </BarChart>
+                                    </AreaChart>
 
                                 </ResponsiveContainer>
 
                             ) : (
 
-                                <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
-
+                                <div
+                                    className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
                                     No transaction data available.
-
                                 </div>
 
                             )}
@@ -792,7 +1007,7 @@ function Dashboard() {
 
                             <div className="flex items-center gap-2 text-white/40">
 
-                                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                                <span className="h-2 w-2 rounded-full bg-emerald-400"/>
 
                                 Income
 
@@ -801,7 +1016,7 @@ function Dashboard() {
 
                             <div className="flex items-center gap-2 text-white/40">
 
-                                <span className="h-2 w-2 rounded-full bg-rose-400" />
+                                <span className="h-2 w-2 rounded-full bg-rose-400"/>
 
                                 Expenses
 
@@ -812,7 +1027,9 @@ function Dashboard() {
                     </Card>
 
 
+                    {/* ================================================= */}
                     {/* SPENDING */}
+                    {/* ================================================= */}
 
                     <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
 
@@ -831,7 +1048,28 @@ function Dashboard() {
 
                         <div className="relative mt-4 h-48">
 
-                            {categoryData.length > 0 ? (
+                            {categoryData.length === 0 ? (
+
+                                <div
+                                    className="flex h-full min-h-[280px] flex-col items-center justify-center text-center">
+
+                                    <div
+                                        className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-2xl">
+                                        📊
+                                    </div>
+
+                                    <h3 className="mt-4 text-sm font-semibold text-white">
+                                        No spending data yet
+                                    </h3>
+
+                                    <p className="mt-1 max-w-xs text-xs text-white/30">
+                                        Add an expense to see your
+                                        spending breakdown.
+                                    </p>
+
+                                </div>
+
+                            ) : (
 
                                 <ResponsiveContainer
                                     width="100%"
@@ -853,10 +1091,13 @@ function Dashboard() {
                                         >
 
                                             {categoryData.map(
-                                                (_, index) => (
+                                                (
+                                                    entry,
+                                                    index
+                                                ) => (
 
                                                     <Cell
-                                                        key={index}
+                                                        key={`${entry.name}-${index}`}
                                                         fill={
                                                             [
                                                                 "#a78bfa",
@@ -882,17 +1123,20 @@ function Dashboard() {
                                                 border: "1px solid rgba(255,255,255,0.1)",
                                                 borderRadius: "14px",
                                             }}
+                                            formatter={(
+                                                value
+                                            ) =>
+                                                `₹${Number(
+                                                    value
+                                                ).toLocaleString(
+                                                    "en-IN"
+                                                )}`
+                                            }
                                         />
 
                                     </PieChart>
 
                                 </ResponsiveContainer>
-
-                            ) : (
-
-                                <div className="flex h-full items-center justify-center text-sm text-white/25">
-                                    No spending data.
-                                </div>
 
                             )}
 
@@ -926,91 +1170,102 @@ function Dashboard() {
 
                             {categoryData
                                 .slice(0, 4)
-                                .map((category, index) => {
+                                .map(
+                                    (
+                                        category,
+                                        index
+                                    ) => {
 
-                                    const percentage =
-                                        summary &&
-                                        summary.totalExpense > 0
-                                            ? (
-                                                (category.value /
-                                                    summary.totalExpense) *
-                                                100
-                                            )
-                                            : 0
+                                        const percentage =
+                                            summary &&
+                                            summary.totalExpense > 0
+                                                ? (
+                                                    (
+                                                        category.value /
+                                                        summary.totalExpense
+                                                    ) *
+                                                    100
+                                                )
+                                                : 0
 
-                                    return (
+                                        return (
 
-                                        <div
-                                            key={category.name}
-                                            className="flex items-center justify-between"
-                                        >
+                                            <div
+                                                key={category.name}
+                                                className="flex items-center justify-between"
+                                            >
 
-                                            <div className="flex min-w-0 items-center gap-3">
+                                                <div className="flex min-w-0 items-center gap-3">
 
-                                                <div
-                                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                                                    style={{
-                                                        background:
-                                                            [
-                                                                "rgba(167,139,250,0.1)",
-                                                                "rgba(52,211,153,0.1)",
-                                                                "rgba(96,165,250,0.1)",
-                                                                "rgba(251,113,133,0.1)",
-                                                                "rgba(251,191,36,0.1)",
-                                                            ][
-                                                            index % 5
-                                                                ],
-                                                    }}
-                                                >
-
-                                                    <span
+                                                    <div
+                                                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
                                                         style={{
-                                                            color:
+                                                            background:
                                                                 [
-                                                                    "#a78bfa",
-                                                                    "#34d399",
-                                                                    "#60a5fa",
-                                                                    "#fb7185",
-                                                                    "#fbbf24",
+                                                                    "rgba(167,139,250,0.1)",
+                                                                    "rgba(52,211,153,0.1)",
+                                                                    "rgba(96,165,250,0.1)",
+                                                                    "rgba(251,113,133,0.1)",
+                                                                    "rgba(251,191,36,0.1)",
                                                                 ][
                                                                 index % 5
                                                                     ],
                                                         }}
                                                     >
-                                                        {getCategoryIcon(
-                                                            category.name
-                                                        )}
-                                                    </span>
+
+                                                        <span
+                                                            style={{
+                                                                color:
+                                                                    [
+                                                                        "#a78bfa",
+                                                                        "#34d399",
+                                                                        "#60a5fa",
+                                                                        "#fb7185",
+                                                                        "#fbbf24",
+                                                                    ][
+                                                                    index % 5
+                                                                        ],
+                                                            }}
+                                                        >
+
+                                                            {getCategoryIcon(
+                                                                category.name
+                                                            )}
+
+                                                        </span>
+
+                                                    </div>
+
+
+                                                    <div className="min-w-0">
+
+                                                        <p className="truncate text-sm font-medium text-white/75">
+                                                            {category.name}
+                                                        </p>
+
+                                                        <p className="text-[11px] text-white/30">
+                                                            {percentage.toFixed(
+                                                                0
+                                                            )}
+                                                            %
+                                                        </p>
+
+                                                    </div>
 
                                                 </div>
 
 
-                                                <div className="min-w-0">
-
-                                                    <p className="truncate text-sm font-medium text-white/75">
-                                                        {category.name}
-                                                    </p>
-
-                                                    <p className="text-[11px] text-white/30">
-                                                        {percentage.toFixed(0)}%
-                                                    </p>
-
-                                                </div>
+                                                <p className="shrink-0 text-sm font-semibold text-white">
+                                                    ₹{formatMoney(
+                                                    category.value
+                                                )}
+                                                </p>
 
                                             </div>
 
-
-                                            <p className="shrink-0 text-sm font-semibold text-white">
-                                                ₹{formatMoney(
-                                                category.value
-                                            )}
-                                            </p>
-
-                                        </div>
-
-                                    )
-
-                                })}
+                                        )
+                                    }
+                                )}
 
                         </div>
 
@@ -1020,12 +1275,351 @@ function Dashboard() {
 
 
                 {/* ================================================= */}
+                {/* INCOME / EXPENSE SUMMARY */}
+                {/* ================================================= */}
+
+                <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
+
+                    <div>
+
+                        <h3 className="font-semibold text-white">
+                            Income vs expenses
+                        </h3>
+
+                        <p className="mt-1 text-sm text-white/35">
+                            Total money coming in compared with money going out
+                        </p>
+
+                    </div>
+
+
+                    <div className="mt-8 h-[280px]">
+
+                        {incomeExpenseData.some(
+                            (item) =>
+                                item.amount > 0
+                        ) ? (
+
+                            <ResponsiveContainer
+                                width="100%"
+                                height="100%"
+                            >
+
+                                <BarChart
+                                    data={incomeExpenseData}
+                                    margin={{
+                                        top: 5,
+                                        right: 5,
+                                        left: -20,
+                                        bottom: 0,
+                                    }}
+                                >
+
+                                    <CartesianGrid
+                                        stroke="rgba(255,255,255,0.06)"
+                                        vertical={false}
+                                    />
+
+                                    <XAxis
+                                        dataKey="name"
+                                        tick={{
+                                            fill: "#71717a",
+                                            fontSize: 11,
+                                        }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+
+                                    <YAxis
+                                        tick={{
+                                            fill: "#71717a",
+                                            fontSize: 11,
+                                        }}
+                                        tickFormatter={(
+                                            value
+                                        ) =>
+                                            `₹${value}`
+                                        }
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+
+                                    <Tooltip
+                                        cursor={{
+                                            fill: "rgba(255,255,255,0.025)",
+                                        }}
+                                        contentStyle={{
+                                            background: "#111318",
+                                            border: "1px solid rgba(255,255,255,0.1)",
+                                            borderRadius: "14px",
+                                        }}
+                                        formatter={(
+                                            value
+                                        ) =>
+                                            `₹${Number(
+                                                value
+                                            ).toLocaleString(
+                                                "en-IN"
+                                            )}`
+                                        }
+                                    />
+
+                                    <Bar
+                                        dataKey="amount"
+                                        name="Amount"
+                                        fill="#a78bfa"
+                                        radius={[
+                                            6,
+                                            6,
+                                            0,
+                                            0,
+                                        ]}
+                                    />
+
+                                </BarChart>
+
+                            </ResponsiveContainer>
+
+                        ) : (
+
+                            <div
+                                className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
+                                No income or expense data yet.
+                            </div>
+
+                        )}
+
+                    </div>
+
+                </Card>
+
+                <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
+
+                    <div className="flex items-center gap-3">
+
+                        <div
+                            className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
+
+                            ✨
+
+                        </div>
+
+                        <div>
+
+                            <h2 className="text-sm font-semibold text-white">
+                                Smart Insights
+                            </h2>
+
+                            <p className="mt-0.5 text-xs text-white/30">
+                                Based on your transaction activity
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div className="mt-6 grid gap-3 md:grid-cols-3">
+
+
+                        {/* ================================================= */}
+                        {/* TOP CATEGORY */}
+                        {/* ================================================= */}
+
+                        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">
+                                Biggest spending
+                            </p>
+
+
+                            {insights.topCategory ? (
+
+                                <>
+
+                                    <p className="mt-3 text-lg font-bold text-white">
+
+                                        {insights.topCategory}
+
+                                    </p>
+
+                                    <p className="mt-1 text-xs text-white/35">
+
+                                        ₹
+                                        {insights.topCategoryAmount.toLocaleString(
+                                            "en-IN"
+                                        )}
+
+                                        {" "}spent
+
+                                    </p>
+
+                                </>
+
+                            ) : (
+
+                                <p className="mt-3 text-sm text-white/30">
+                                    No expense data yet
+                                </p>
+
+                            )}
+
+                        </div>
+
+
+                        {/* ================================================= */}
+                        {/* SAVINGS RATE */}
+                        {/* ================================================= */}
+
+                        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">
+                                Savings rate
+                            </p>
+
+
+                            <p className="mt-3 text-lg font-bold text-emerald-400">
+
+                                {insights.savingsRate.toFixed(
+                                    1
+                                )}
+                                %
+
+                            </p>
+
+
+                            <p className="mt-1 text-xs text-white/35">
+
+                                of your income remains
+
+                            </p>
+
+                        </div>
+
+
+                        {/* ================================================= */}
+                        {/* CASH FLOW */}
+                        {/* ================================================= */}
+
+                        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">
+                                Net cash flow
+                            </p>
+
+
+                            <p
+                                className={`mt-3 text-lg font-bold ${
+                                    insights.balance >= 0
+                                        ? "text-emerald-400"
+                                        : "text-rose-400"
+                                }`}
+                            >
+
+                                {insights.balance >=
+                                0
+                                    ? "+"
+                                    : "-"}
+
+                                ₹
+                                {Math.abs(
+                                    insights.balance
+                                ).toLocaleString(
+                                    "en-IN"
+                                )}
+
+                            </p>
+
+
+                            <p className="mt-1 text-xs text-white/35">
+
+                                after expenses
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+                <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
+
+                    <div className="flex items-center justify-between">
+
+                        <div>
+
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/25">
+                                Financial health
+                            </p>
+
+                            <h2 className="mt-2 text-xl font-bold text-white">
+                                {health.label}
+                            </h2>
+
+                        </div>
+
+
+                        <div
+                            className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/10">
+
+                            <div className="text-center">
+
+                                <p className="text-xl font-bold text-white">
+                                    {health.score}
+                                </p>
+
+                                <p className="text-[9px] uppercase tracking-wider text-white/25">
+                                    score
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div className="mt-6">
+
+                        <div className="h-2 overflow-hidden rounded-full bg-white/5">
+
+                            <div
+                                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-400 transition-all duration-700"
+                                style={{
+                                    width:
+                                        `${health.score}%`,
+                                }}
+                            />
+
+                        </div>
+
+
+                        <div className="mt-2 flex justify-between text-[10px] text-white/20">
+
+            <span>
+                Needs attention
+            </span>
+
+                            <span>
+                Excellent
+            </span>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                {/* ================================================= */}
                 {/* RECENT TRANSACTIONS */}
                 {/* ================================================= */}
 
                 <Card className="overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
 
-                    <div className="flex flex-col gap-4 border-b border-white/[0.07] p-6 sm:flex-row sm:items-center sm:justify-between">
+                    <div
+                        className="flex flex-col gap-4 border-b border-white/[0.07] p-6 sm:flex-row sm:items-center sm:justify-between">
 
                         <div>
 
@@ -1049,9 +1643,7 @@ function Dashboard() {
 
 
                         <button className="w-fit text-sm font-medium text-white/40 transition hover:text-white">
-
                             View all →
-
                         </button>
 
                     </div>
@@ -1065,13 +1657,13 @@ function Dashboard() {
 
                                 <div className="flex h-20 animate-pulse items-center gap-4 px-6">
 
-                                    <div className="h-10 w-10 rounded-xl bg-white/5" />
+                                    <div className="h-10 w-10 rounded-xl bg-white/5"/>
 
                                     <div className="space-y-2">
 
-                                        <div className="h-3 w-32 rounded bg-white/5" />
+                                        <div className="h-3 w-32 rounded bg-white/5"/>
 
-                                        <div className="h-2 w-24 rounded bg-white/5" />
+                                        <div className="h-2 w-24 rounded bg-white/5"/>
 
                                     </div>
 
@@ -1080,13 +1672,13 @@ function Dashboard() {
 
                                 <div className="flex h-20 animate-pulse items-center gap-4 px-6">
 
-                                    <div className="h-10 w-10 rounded-xl bg-white/5" />
+                                    <div className="h-10 w-10 rounded-xl bg-white/5"/>
 
                                     <div className="space-y-2">
 
-                                        <div className="h-3 w-32 rounded bg-white/5" />
+                                        <div className="h-3 w-32 rounded bg-white/5"/>
 
-                                        <div className="h-2 w-24 rounded bg-white/5" />
+                                        <div className="h-2 w-24 rounded bg-white/5"/>
 
                                     </div>
 
@@ -1095,13 +1687,13 @@ function Dashboard() {
 
                                 <div className="flex h-20 animate-pulse items-center gap-4 px-6">
 
-                                    <div className="h-10 w-10 rounded-xl bg-white/5" />
+                                    <div className="h-10 w-10 rounded-xl bg-white/5"/>
 
                                     <div className="space-y-2">
 
-                                        <div className="h-3 w-32 rounded bg-white/5" />
+                                        <div className="h-3 w-32 rounded bg-white/5"/>
 
-                                        <div className="h-2 w-24 rounded bg-white/5" />
+                                        <div className="h-2 w-24 rounded bg-white/5"/>
 
                                     </div>
 
@@ -1113,9 +1705,12 @@ function Dashboard() {
 
                             <div className="px-6 py-14 text-center">
 
-                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/30">
+                                <div
+                                    className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/30">
 
-                                    <Wallet size={22} />
+                                    <Wallet
+                                        size={22}
+                                    />
 
                                 </div>
 
@@ -1129,7 +1724,9 @@ function Dashboard() {
 
                                 <Button className="mt-5 rounded-xl bg-white text-black hover:bg-white/90">
 
-                                    <Plus size={16} />
+                                    <Plus
+                                        size={16}
+                                    />
 
                                     Add transaction
 
@@ -1141,96 +1738,106 @@ function Dashboard() {
 
                             transactions
                                 .slice(0, 5)
-                                .map((transaction) => (
+                                .map(
+                                    (
+                                        transaction
+                                    ) => (
 
-                                    <div
-                                        key={transaction.id}
-                                        className="group flex items-center justify-between gap-4 px-6 py-4 transition-colors duration-200 hover:bg-white/[0.025]"
-                                    >
+                                        <div
+                                            key={transaction.id}
+                                            className="group flex items-center justify-between gap-4 px-6 py-4 transition-colors duration-200 hover:bg-white/[0.025]"
+                                        >
+
+                                            {/* LEFT */}
+
+                                            <div className="flex min-w-0 items-center gap-4">
+
+                                                <div
+                                                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-white/55 transition group-hover:border-white/15 group-hover:text-white">
+
+                                                    {getCategoryIcon(
+                                                        transaction.category ??
+                                                        "Other"
+                                                    )}
+
+                                                </div>
 
 
-                                        {/* LEFT */}
+                                                <div className="min-w-0">
 
-                                        <div className="flex min-w-0 items-center gap-4">
+                                                    <p className="truncate text-sm font-semibold text-white">
 
-                                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-white/55 transition group-hover:border-white/15 group-hover:text-white">
+                                                        {transaction.title ||
+                                                            "Untitled transaction"}
 
-                                                {getCategoryIcon(
-                                                    transaction.category
-                                                )}
+                                                    </p>
+
+                                                    <p className="mt-1 truncate text-xs text-white/30">
+
+                                                        {transaction.category ??
+                                                            "Other"}
+
+                                                        {" · "}
+
+                                                        {transaction.date}
+
+                                                    </p>
+
+                                                </div>
 
                                             </div>
 
 
-                                            <div className="min-w-0">
+                                            {/* RIGHT */}
 
-                                                <p className="truncate text-sm font-semibold text-white">
-                                                    {transaction.title || "Untitled transaction"}
-                                                </p>
+                                            <div className="flex shrink-0 items-center gap-4">
 
-                                                <p className="mt-1 truncate text-xs text-white/30">
+                                                <div className="text-right">
 
-                                                    {transaction.category || "Other"}
+                                                    <p
+                                                        className={
+                                                            transaction.type ===
+                                                            "INCOME"
+                                                                ? "text-sm font-bold text-emerald-400"
+                                                                : "text-sm font-bold text-white"
+                                                        }
+                                                    >
 
-                                                    {" · "}
-
-                                                    {transaction.date}
-
-                                                </p>
-
-                                            </div>
-
-                                        </div>
-
-
-                                        {/* RIGHT */}
-
-                                        <div className="flex shrink-0 items-center gap-4">
-
-                                            <div className="text-right">
-
-                                                <p
-                                                    className={
-                                                        transaction.type ===
+                                                        {transaction.type ===
                                                         "INCOME"
-                                                            ? "text-sm font-bold text-emerald-400"
-                                                            : "text-sm font-bold text-white"
-                                                    }
-                                                >
+                                                            ? "+"
+                                                            : "-"}
 
-                                                    {transaction.type ===
-                                                    "INCOME"
-                                                        ? "+"
-                                                        : "-"}
+                                                        ₹{formatMoney(
+                                                        transaction.amount
+                                                    )}
 
-                                                    ₹{formatMoney(
-                                                    transaction.amount
-                                                )}
+                                                    </p>
 
-                                                </p>
+                                                    <p className="mt-1 text-[10px] uppercase tracking-wider text-white/20">
 
-                                                <p className="mt-1 text-[10px] uppercase tracking-wider text-white/20">
+                                                        {transaction.type}
 
-                                                    {transaction.type}
+                                                    </p>
 
-                                                </p>
+                                                </div>
+
+
+                                                <button
+                                                    className="hidden rounded-lg p-2 text-white/20 opacity-0 transition hover:bg-white/5 hover:text-white sm:block sm:group-hover:opacity-100">
+
+                                                    <MoreHorizontal
+                                                        size={18}
+                                                    />
+
+                                                </button>
 
                                             </div>
 
-
-                                            <button className="hidden rounded-lg p-2 text-white/20 opacity-0 transition hover:bg-white/5 hover:text-white sm:block sm:group-hover:opacity-100">
-
-                                                <MoreHorizontal
-                                                    size={18}
-                                                />
-
-                                            </button>
-
                                         </div>
 
-                                    </div>
-
-                                ))
+                                    )
+                                )
 
                         )}
 
@@ -1243,13 +1850,17 @@ function Dashboard() {
                 {/* FOOTER INSIGHT */}
                 {/* ================================================= */}
 
-                <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.018] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div
+                    className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.018] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
 
                     <div className="flex items-center gap-3">
 
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
+                        <div
+                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
 
-                            <Sparkles size={16} />
+                            <Sparkles
+                                size={16}
+                            />
 
                         </div>
 
