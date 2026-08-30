@@ -15,8 +15,11 @@ import {
     ChevronRight,
     X,
 } from "lucide-react"
+
 import { toast } from "sonner"
+
 import {
+    useEffect,
     useMemo,
     useState,
 } from "react"
@@ -118,7 +121,7 @@ function Transactions() {
         useMutation({
 
             mutationFn:
-            deleteTransaction,
+                deleteTransaction,
 
             onSuccess: () => {
 
@@ -141,7 +144,6 @@ function Transactions() {
                             "The transaction was removed successfully.",
                     }
                 )
-
             },
 
             onError: () => {
@@ -153,7 +155,6 @@ function Transactions() {
                             "We couldn't delete the transaction. Please try again.",
                     }
                 )
-
             },
 
         })
@@ -163,29 +164,33 @@ function Transactions() {
     // CATEGORY LIST
     // =====================================================
 
-    const categories = useMemo(() => {
+    const categories =
+        useMemo<string[]>(() => {
 
-        const categoryNames =
-            transactions
-                .map(
-                    (transaction) =>
-                        transaction.category
-                )
-                .filter(
-                    (
-                        category
-                    ): category is string =>
-                        Boolean(category)
-                )
+            const categoryNames =
+                transactions
+                    .map(
+                        (transaction) =>
+                            transaction.category
+                    )
+                    .filter(
+                        (
+                            category
+                        ): category is string =>
+                            Boolean(category)
+                    )
 
-        return [
-            "ALL",
-            ...Array.from(
-                new Set(categoryNames)
-            ),
-        ]
 
-    }, [transactions])
+            return [
+                "ALL",
+                ...Array.from(
+                    new Set(
+                        categoryNames
+                    )
+                ),
+            ]
+
+        }, [transactions])
 
 
     // =====================================================
@@ -205,23 +210,23 @@ function Transactions() {
                 transactions.filter(
                     (transaction) => {
 
+                        // ---------------------------------
+                        // SAFE VALUES
+                        // ---------------------------------
+
                         const title =
-                            transaction.title ??
-                            ""
+                            transaction.title ?? ""
 
                         const categoryName =
-                            transaction.category
-                                 ??
-                            ""
+                            transaction.category ?? ""
 
 
-                        // -------------------------
+                        // ---------------------------------
                         // SEARCH
-                        // -------------------------
+                        // ---------------------------------
 
                         const matchesSearch =
-                            normalizedSearch ===
-                            "" ||
+                            normalizedSearch === "" ||
                             title
                                 .toLowerCase()
                                 .includes(
@@ -234,26 +239,24 @@ function Transactions() {
                                 )
 
 
-                        // -------------------------
+                        // ---------------------------------
                         // TYPE
-                        // -------------------------
+                        // ---------------------------------
 
                         const matchesType =
-                            typeFilter ===
-                            "ALL" ||
+                            typeFilter === "ALL" ||
                             transaction.type ===
-                            typeFilter
+                                typeFilter
 
 
-                        // -------------------------
+                        // ---------------------------------
                         // CATEGORY
-                        // -------------------------
+                        // ---------------------------------
 
                         const matchesCategory =
-                            categoryFilter ===
-                            "ALL" ||
+                            categoryFilter === "ALL" ||
                             categoryName ===
-                            categoryFilter
+                                categoryFilter
 
 
                         return (
@@ -265,9 +268,9 @@ function Transactions() {
                 )
 
 
-            // -------------------------
+            // ---------------------------------
             // SORT
-            // -------------------------
+            // ---------------------------------
 
             result.sort(
                 (a, b) => {
@@ -281,15 +284,16 @@ function Transactions() {
                     ) {
 
                         difference =
-                            a.date.localeCompare(
-                                b.date
-                            )
+                            (a.date ?? "")
+                                .localeCompare(
+                                    b.date ?? ""
+                                )
 
                     } else {
 
                         difference =
-                            a.amount -
-                            b.amount
+                            (a.amount ?? 0) -
+                            (b.amount ?? 0)
                     }
 
 
@@ -368,7 +372,8 @@ function Transactions() {
     ) => {
 
         const value =
-            category.toLowerCase()
+            category
+                .toLowerCase()
 
 
         if (
@@ -451,7 +456,8 @@ function Transactions() {
         (category: string) => {
 
             const value =
-                category.toLowerCase()
+                category
+                    .toLowerCase()
 
 
             if (
@@ -540,19 +546,55 @@ function Transactions() {
     // OPEN CREATE
     // =====================================================
 
-    const openCreate =
-        () => {
+    const openCreate = () => {
 
-            setEditingTransaction(
-                null
-            )
+        setEditingTransaction(null)
 
-            setDialogOpen(true)
+        setDialogOpen(true)
+    }
 
-            toast.success(
-                "Ready to add a transaction"
+
+    // =====================================================
+    // KEYBOARD SHORTCUT
+    // =====================================================
+
+    useEffect(() => {
+
+        const handleKeyboard = (
+            event: KeyboardEvent
+        ) => {
+
+            if (
+                (event.ctrlKey ||
+                    event.metaKey) &&
+                event.key.toLowerCase() ===
+                    "k"
+            ) {
+
+                event.preventDefault()
+
+                setEditingTransaction(null)
+
+                setDialogOpen(true)
+            }
+        }
+
+
+        window.addEventListener(
+            "keydown",
+            handleKeyboard
+        )
+
+
+        return () => {
+
+            window.removeEventListener(
+                "keydown",
+                handleKeyboard
             )
         }
+
+    }, [])
 
 
     // =====================================================
@@ -636,6 +678,7 @@ function Transactions() {
                 )
             }
 
+
             setPage(1)
         }
 
@@ -702,13 +745,11 @@ function Transactions() {
 
                         <Button
                             onClick={() =>
-                                queryClient.invalidateQueries(
-                                    {
-                                        queryKey: [
-                                            "transactions",
-                                        ],
-                                    }
-                                )
+                                queryClient.invalidateQueries({
+                                    queryKey: [
+                                        "transactions",
+                                    ],
+                                })
                             }
                             className="mt-6 rounded-xl bg-white text-black hover:bg-white/90"
                         >
@@ -768,17 +809,25 @@ function Transactions() {
                         <div className="mt-2 flex flex-wrap items-center gap-2">
 
                             <p className="text-sm text-white/35">
+
                                 Track, organize and manage every
                                 transaction in one place.
+
                             </p>
 
+
                             <span className="hidden text-white/15 sm:inline">
-        •
-    </span>
+
+                                •
+
+                            </span>
+
 
                             <span className="text-xs font-medium text-white/30">
-        {transactions.length} recorded
-    </span>
+
+                                {transactions.length} recorded
+
+                            </span>
 
                         </div>
 
@@ -786,18 +835,22 @@ function Transactions() {
 
 
                     <Button
-                        onClick={
-                            openCreate
-                        }
+                        onClick={openCreate}
                         className="group w-fit rounded-xl bg-white px-5 text-black shadow-lg shadow-white/5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/90 hover:shadow-xl"
                     >
 
-                    <Plus
+                        <Plus
                             size={17}
                             className="transition-transform duration-300 group-hover:rotate-90"
                         />
 
                         Add transaction
+
+                        <kbd className="ml-2 hidden rounded-md border border-black/10 bg-black/5 px-1.5 py-0.5 text-[10px] font-medium text-black/50 sm:inline">
+
+                            Ctrl K
+
+                        </kbd>
 
                     </Button>
 
@@ -959,6 +1012,7 @@ function Transactions() {
                                 {search && (
 
                                     <button
+                                        type="button"
                                         onClick={() => {
 
                                             setSearch(
@@ -999,6 +1053,7 @@ function Transactions() {
                                     ) => (
 
                                         <button
+                                            type="button"
                                             key={
                                                 type
                                             }
@@ -1013,11 +1068,11 @@ function Transactions() {
                                                 )
                                             }}
                                             className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium transition ${
-                                                typeFilter ===
-                                                type
-                                                    ? "bg-white text-black shadow-sm"
-                                                    : "text-white/35 hover:text-white"
-                                            }`}
+    typeFilter ===
+    type
+        ? "bg-white text-black shadow-sm"
+        : "text-white/35 hover:text-white"
+}`}
                                         >
 
                                             {type ===
@@ -1111,17 +1166,18 @@ function Transactions() {
 
 
                                 <button
+                                    type="button"
                                     onClick={() =>
                                         handleSort(
                                             "date"
                                         )
                                     }
                                     className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition ${
-                                        sortBy ===
-                                        "date"
-                                            ? "bg-white/10 text-white"
-                                            : "text-white/35 hover:text-white"
-                                    }`}
+    sortBy ===
+    "date"
+        ? "bg-white/10 text-white"
+        : "text-white/35 hover:text-white"
+}`}
                                 >
 
                                     Date
@@ -1129,27 +1185,28 @@ function Transactions() {
                                     {sortBy ===
                                         "date" && (
 
-                                            <ArrowUpDown
-                                                size={12}
-                                            />
+                                        <ArrowUpDown
+                                            size={12}
+                                        />
 
-                                        )}
+                                    )}
 
                                 </button>
 
 
                                 <button
+                                    type="button"
                                     onClick={() =>
                                         handleSort(
                                             "amount"
                                         )
                                     }
                                     className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition ${
-                                        sortBy ===
-                                        "amount"
-                                            ? "bg-white/10 text-white"
-                                            : "text-white/35 hover:text-white"
-                                    }`}
+    sortBy ===
+    "amount"
+        ? "bg-white/10 text-white"
+        : "text-white/35 hover:text-white"
+}`}
                                 >
 
                                     Amount
@@ -1157,11 +1214,11 @@ function Transactions() {
                                     {sortBy ===
                                         "amount" && (
 
-                                            <ArrowUpDown
-                                                size={12}
-                                            />
+                                        <ArrowUpDown
+                                            size={12}
+                                        />
 
-                                        )}
+                                    )}
 
                                 </button>
 
@@ -1171,6 +1228,7 @@ function Transactions() {
                             {hasActiveFilters && (
 
                                 <button
+                                    type="button"
                                     onClick={
                                         clearFilters
                                     }
@@ -1221,9 +1279,13 @@ function Transactions() {
                             <p className="mt-0.5 text-xs text-white/25">
 
                                 Filtered from{" "}
+
                                 {
                                     transactions.length
-                                }{" "}
+                                }
+
+                                {" "}
+
                                 total
 
                             </p>
@@ -1281,9 +1343,7 @@ function Transactions() {
                     </div>
 
 
-                    {/* ================================================= */}
                     {/* LOADING */}
-                    {/* ================================================= */}
 
                     {isLoading ? (
 
@@ -1332,9 +1392,7 @@ function Transactions() {
                     ) : paginatedTransactions.length ===
                     0 ? (
 
-                        /* ================================================= */
                         /* EMPTY */
-                        /* ================================================= */
 
                         <div className="px-6 py-20 text-center">
 
@@ -1405,9 +1463,7 @@ function Transactions() {
 
                     ) : (
 
-                        /* ================================================= */
                         /* TRANSACTIONS */
-                        /* ================================================= */
 
                         <div className="divide-y divide-white/[0.05]">
 
@@ -1416,10 +1472,16 @@ function Transactions() {
                                     transaction
                                 ) => {
 
+                                    // ==========================================
+                                    // IMPORTANT:
+                                    // Backend returns category as an object.
+                                    // We need only its name for the UI.
+                                    // ==========================================
+
                                     const categoryName =
-                                        transaction.category
-                                             ??
+                                        transaction.category ||
                                         "Other"
+
 
                                     const categoryStyle =
                                         getCategoryColor(
@@ -1468,11 +1530,11 @@ function Transactions() {
 
                                                         <span
                                                             className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                                                transaction.type ===
-                                                                "INCOME"
-                                                                    ? "bg-emerald-400/10 text-emerald-400"
-                                                                    : "bg-rose-400/10 text-rose-400"
-                                                            }`}
+    transaction.type ===
+    "INCOME"
+        ? "bg-emerald-400/10 text-emerald-400"
+        : "bg-rose-400/10 text-rose-400"
+}`}
                                                         >
 
                                                             {transaction.type ===
@@ -1549,7 +1611,11 @@ function Transactions() {
                                                         : "-"}
 
                                                     ₹
-                                                    {transaction.amount.toLocaleString(
+
+                                                    {(
+                                                        transaction.amount ??
+                                                        0
+                                                    ).toLocaleString(
                                                         "en-IN",
                                                         {
                                                             minimumFractionDigits: 2,
@@ -1633,13 +1699,13 @@ function Transactions() {
                     {filteredTransactions.length >
                         0 && (
 
-                            <div className="flex flex-col gap-4 border-t border-white/[0.07] px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col gap-4 border-t border-white/[0.07] px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
 
-                                <p className="text-xs text-white/25">
+                            <p className="text-xs text-white/25">
 
-                                    Showing{" "}
+                                Showing{" "}
 
-                                    <span className="font-medium text-white/50">
+                                <span className="font-medium text-white/50">
 
                                     {(page - 1) *
                                         pageSize +
@@ -1647,21 +1713,21 @@ function Transactions() {
 
                                 </span>
 
-                                    {" – "}
+                                {" – "}
 
-                                    <span className="font-medium text-white/50">
+                                <span className="font-medium text-white/50">
 
                                     {Math.min(
                                         page *
-                                        pageSize,
+                                            pageSize,
                                         filteredTransactions.length
                                     )}
 
                                 </span>
 
-                                    {" of "}
+                                {" of "}
 
-                                    <span className="font-medium text-white/50">
+                                <span className="font-medium text-white/50">
 
                                     {
                                         filteredTransactions.length
@@ -1669,82 +1735,80 @@ function Transactions() {
 
                                 </span>
 
-                                </p>
+                            </p>
 
 
-                                <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
 
-                                    <button
-                                        type="button"
-                                        disabled={
-                                            page ===
-                                            1
-                                        }
-                                        onClick={() =>
-                                            goToPage(
-                                                page -
-                                                1
-                                            )
-                                        }
-                                        className="rounded-lg border border-white/10 p-2 text-white/35 transition hover:border-white/20 hover:bg-white/5 hover:text-white disabled:pointer-events-none disabled:opacity-25"
-                                        title="Previous page"
-                                    >
+                                <button
+                                    type="button"
+                                    disabled={
+                                        page ===
+                                        1
+                                    }
+                                    onClick={() =>
+                                        goToPage(
+                                            page - 1
+                                        )
+                                    }
+                                    className="rounded-lg border border-white/10 p-2 text-white/35 transition hover:border-white/20 hover:bg-white/5 hover:text-white disabled:pointer-events-none disabled:opacity-25"
+                                    title="Previous page"
+                                >
 
-                                        <ChevronLeft
-                                            size={16}
-                                        />
+                                    <ChevronLeft
+                                        size={16}
+                                    />
 
-                                    </button>
+                                </button>
 
 
-                                    <div className="min-w-20 text-center text-xs text-white/35">
+                                <div className="min-w-20 text-center text-xs text-white/35">
 
-                                        Page{" "}
+                                    Page{" "}
 
-                                        <span className="font-medium text-white/60">
+                                    <span className="font-medium text-white/60">
 
                                         {page}
 
                                     </span>
 
-                                        {" "}of{" "}
+                                    {" "}of{" "}
 
-                                        <span className="font-medium text-white/60">
+                                    <span className="font-medium text-white/60">
 
                                         {totalPages}
 
                                     </span>
 
-                                    </div>
-
-
-                                    <button
-                                        type="button"
-                                        disabled={
-                                            page >=
-                                            totalPages
-                                        }
-                                        onClick={() =>
-                                            goToPage(
-                                                page +
-                                                1
-                                            )
-                                        }
-                                        className="rounded-lg border border-white/10 p-2 text-white/35 transition hover:border-white/20 hover:bg-white/5 hover:text-white disabled:pointer-events-none disabled:opacity-25"
-                                        title="Next page"
-                                    >
-
-                                        <ChevronRight
-                                            size={16}
-                                        />
-
-                                    </button>
-
                                 </div>
+
+
+                                <button
+                                    type="button"
+                                    disabled={
+                                        page >=
+                                        totalPages
+                                    }
+                                    onClick={() =>
+                                        goToPage(
+                                            page + 1
+                                        )
+                                    }
+                                    className="rounded-lg border border-white/10 p-2 text-white/35 transition hover:border-white/20 hover:bg-white/5 hover:text-white disabled:pointer-events-none disabled:opacity-25"
+                                    title="Next page"
+                                >
+
+                                    <ChevronRight
+                                        size={16}
+                                    />
+
+                                </button>
 
                             </div>
 
-                        )}
+                        </div>
+
+                    )}
 
                 </Card>
 
@@ -1773,21 +1837,17 @@ function Transactions() {
 
                 onSuccess={() => {
 
-                    queryClient.invalidateQueries(
-                        {
-                            queryKey: [
-                                "transactions",
-                            ],
-                        }
-                    )
+                    queryClient.invalidateQueries({
+                        queryKey: [
+                            "transactions",
+                        ],
+                    })
 
-                    queryClient.invalidateQueries(
-                        {
-                            queryKey: [
-                                "summary",
-                            ],
-                        }
-                    )
+                    queryClient.invalidateQueries({
+                        queryKey: [
+                            "summary",
+                        ],
+                    })
 
                     setEditingTransaction(
                         null
