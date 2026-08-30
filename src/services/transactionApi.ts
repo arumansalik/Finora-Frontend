@@ -1,7 +1,9 @@
-import axios from "axios"
+import api from "@/lib/axios"
 
-const API_URL = "http://localhost:8080/api/transactions"
 
+// =====================================================
+// TYPES
+// =====================================================
 
 export interface Category {
     id: number
@@ -36,8 +38,8 @@ export const getTransactions =
     async (): Promise<Transaction[]> => {
 
         const response =
-            await axios.get<Transaction[]>(
-                API_URL
+            await api.get<Transaction[]>(
+                "/transactions"
             )
 
         return response.data
@@ -54,8 +56,8 @@ export const getTransaction =
     ): Promise<Transaction> => {
 
         const response =
-            await axios.get<Transaction>(
-                `${API_URL}/${id}`
+            await api.get<Transaction>(
+                `/transactions/${id}`
             )
 
         return response.data
@@ -72,8 +74,8 @@ export const createTransaction =
     ): Promise<Transaction> => {
 
         const response =
-            await axios.post<Transaction>(
-                API_URL,
+            await api.post<Transaction>(
+                "/transactions",
                 transaction
             )
 
@@ -92,8 +94,8 @@ export const updateTransaction =
     ): Promise<Transaction> => {
 
         const response =
-            await axios.put<Transaction>(
-                `${API_URL}/${id}`,
+            await api.put<Transaction>(
+                `/transactions/${id}`,
                 transaction
             )
 
@@ -110,7 +112,7 @@ export const deleteTransaction =
         id: number
     ): Promise<void> => {
 
-        await axios.delete(
-            `${API_URL}/${id}`
+        await api.delete(
+            `/transactions/${id}`
         )
     }

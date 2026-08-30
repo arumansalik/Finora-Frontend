@@ -1,16 +1,23 @@
-import api from "./api"
+import api from "@/lib/axios"
 
-export interface Summary {
+
+export interface SummaryResponse {
     totalIncome: number
     totalExpense: number
     balance: number
 }
 
-export const getSummary = async (): Promise<Summary> => {
 
-    const response = await api.get<Summary>(
-        "/summary"
-    )
+// =====================================================
+// GET SUMMARY
+// =====================================================
+
+export async function getSummary(): Promise<SummaryResponse> {
+
+    const response =
+        await api.get<SummaryResponse>(
+            "/summary"
+        )
 
     return response.data
 }
