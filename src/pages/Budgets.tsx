@@ -26,7 +26,6 @@ import {
 
 import {
     getCategories,
-    type Category,
 } from "@/services/categoryApi"
 
 import BudgetDialog from "@/component/budgets/BudgetDialog"
@@ -80,6 +79,7 @@ export default function Budgets() {
         data: budgets = [],
         isLoading,
         isError,
+        error,
     } = useQuery({
 
         queryKey: [
@@ -109,7 +109,6 @@ export default function Budgets() {
 
     const {
         data: categories = [],
-        isLoading: categoriesLoading,
         isError: categoriesError,
     } = useQuery({
 
@@ -186,6 +185,97 @@ export default function Budgets() {
 
 
     // =====================================================
+    // BUDGET HEALTH
+    // =====================================================
+
+    const budgetHealth =
+        useMemo(() => {
+
+            let healthy = 0
+            let warning = 0
+            let danger = 0
+
+
+            budgets.forEach(
+                (budget) => {
+
+                    if (
+                        budget.percentage < 70
+                    ) {
+
+                        healthy++
+
+                    } else if (
+                        budget.percentage < 90
+                    ) {
+
+                        warning++
+
+                    } else {
+
+                        danger++
+
+                    }
+
+                }
+            )
+
+
+            let status =
+                "Healthy"
+
+            let description =
+                "Your spending is comfortably within your budgets."
+
+
+            if (
+                totals.percentage >= 100
+            ) {
+
+                status =
+                    "Over budget"
+
+                description =
+                    "Your spending has exceeded your total budget."
+
+            } else if (
+                totals.percentage >= 90
+            ) {
+
+                status =
+                    "Needs attention"
+
+                description =
+                    "You're getting very close to your overall budget limit."
+
+            } else if (
+                totals.percentage >= 70
+            ) {
+
+                status =
+                    "Watch spending"
+
+                description =
+                    "You're using a significant portion of your budget."
+
+            }
+
+
+            return {
+                healthy,
+                warning,
+                danger,
+                status,
+                description,
+            }
+
+        }, [
+            budgets,
+            totals.percentage,
+        ])
+
+
+    // =====================================================
     // DELETE
     // =====================================================
 
@@ -222,6 +312,7 @@ export default function Budgets() {
             setDialogOpen(
                 true
             )
+
         }
 
 
@@ -241,11 +332,12 @@ export default function Budgets() {
             setDialogOpen(
                 true
             )
+
         }
 
 
     // =====================================================
-    // DELETE
+    // DELETE HANDLER
     // =====================================================
 
     const handleDelete =
@@ -267,6 +359,7 @@ export default function Budgets() {
             deleteMutation.mutate(
                 budget.id
             )
+
         }
 
 
@@ -288,6 +381,83 @@ export default function Budgets() {
 
 
     // =====================================================
+    // PREVIOUS MONTH
+    // =====================================================
+
+    const goToPreviousMonth =
+        () => {
+
+            if (month === 1) {
+
+                setMonth(12)
+
+                setYear(
+                    (current) =>
+                        current - 1
+                )
+
+            } else {
+
+                setMonth(
+                    (current) =>
+                        current - 1
+                )
+
+            }
+
+        }
+
+
+    // =====================================================
+    // NEXT MONTH
+    // =====================================================
+
+    const goToNextMonth =
+        () => {
+
+            if (month === 12) {
+
+                setMonth(1)
+
+                setYear(
+                    (current) =>
+                        current + 1
+                )
+
+            } else {
+
+                setMonth(
+                    (current) =>
+                        current + 1
+                )
+
+            }
+
+        }
+
+
+    // =====================================================
+    // CURRENT MONTH
+    // =====================================================
+
+    const goToCurrentMonth =
+        () => {
+
+            const currentDate =
+                new Date()
+
+            setMonth(
+                currentDate.getMonth() + 1
+            )
+
+            setYear(
+                currentDate.getFullYear()
+            )
+
+        }
+
+
+    // =====================================================
     // ERROR
     // =====================================================
 
@@ -295,6 +465,11 @@ export default function Budgets() {
         isError ||
         categoriesError
     ) {
+
+        console.error(
+            "Budget error:",
+            error
+        )
 
         return (
 
@@ -320,6 +495,7 @@ export default function Budgets() {
             </div>
 
         )
+
     }
 
 
@@ -354,9 +530,7 @@ export default function Budgets() {
 
 
                     <Button
-                        onClick={
-                            openCreate
-                        }
+                        onClick={openCreate}
                         className="w-fit rounded-xl bg-white text-black hover:bg-white/90"
                     >
 
@@ -386,7 +560,7 @@ export default function Budgets() {
 
                 <Card className="rounded-2xl border-white/[0.08] bg-white/[0.025] p-4">
 
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
                         <div>
 
@@ -394,100 +568,189 @@ export default function Budgets() {
                                 Budget period
                             </p>
 
-                            <p className="mt-1 text-sm font-semibold text-white">
-                                {monthName} {year}
-                            </p>
+                            <div className="mt-1 flex items-center gap-2">
+
+                                <button
+                                    onClick={goToPreviousMonth}
+                                    className="rounded-lg p-2 text-white/30 transition hover:bg-white/5 hover:text-white"
+                                    aria-label="Previous month"
+                                >
+                                    ←
+                                </button>
+
+
+                                <button
+                                    onClick={goToCurrentMonth}
+                                    className="min-w-36 rounded-lg px-3 py-2 text-left text-sm font-semibold text-white transition hover:bg-white/5"
+                                >
+                                    {monthName} {year}
+                                </button>
+
+
+                                <button
+                                    onClick={goToNextMonth}
+                                    className="rounded-lg p-2 text-white/30 transition hover:bg-white/5 hover:text-white"
+                                    aria-label="Next month"
+                                >
+                                    →
+                                </button>
+
+                            </div>
 
                         </div>
 
 
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
 
-                            <select
-                                value={month}
-                                onChange={(event) =>
-                                    setMonth(
-                                        Number(
-                                            event.target.value
-                                        )
-                                    )
-                                }
-                                className="h-10 rounded-xl border border-white/10 bg-[#15171d] px-3 text-sm text-white outline-none"
+                            <button
+                                onClick={goToCurrentMonth}
+                                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-white/50 transition hover:bg-white/10 hover:text-white"
                             >
+                                Today
+                            </button>
 
-                                {Array.from(
-                                    {
-                                        length: 12,
-                                    },
-                                    (
-                                        _,
-                                        index
-                                    ) => (
+                        </div>
 
-                                        <option
-                                            key={
-                                                index + 1
-                                            }
-                                            value={
-                                                index + 1
-                                            }
-                                        >
+                    </div>
 
-                                            {new Date(
-                                                2026,
-                                                index,
-                                                1
-                                            ).toLocaleString(
-                                                "en-IN",
-                                                {
-                                                    month: "long",
-                                                }
-                                            )}
-
-                                        </option>
-
-                                    )
-                                )}
-
-                            </select>
+                </Card>
 
 
-                            <select
-                                value={year}
-                                onChange={(event) =>
-                                    setYear(
-                                        Number(
-                                            event.target.value
-                                        )
-                                    )
-                                }
-                                className="h-10 rounded-xl border border-white/10 bg-[#15171d] px-3 text-sm text-white outline-none"
-                            >
+                {/* ================================================= */}
+                {/* BUDGET HEALTH */}
+                {/* ================================================= */}
 
-                                {[
-                                    year - 1,
-                                    year,
-                                    year + 1,
-                                ].map(
-                                    (
-                                        value
-                                    ) => (
+                <Card className="overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025]">
 
-                                        <option
-                                            key={
-                                                value
-                                            }
-                                            value={
-                                                value
-                                            }
-                                        >
-                                            {value}
-                                        </option>
+                    <div className="p-6">
 
-                                    )
-                                )}
+                        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 
-                            </select>
+
+                            {/* LEFT */}
+
+                            <div>
+
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-400">
+                                    Budget health
+                                </p>
+
+                                <h2 className="mt-2 text-2xl font-bold">
+                                    {budgetHealth.status}
+                                </h2>
+
+                                <p className="mt-2 max-w-lg text-sm text-white/35">
+                                    {budgetHealth.description}
+                                </p>
+
+                            </div>
+
+
+                            {/* CENTER */}
+
+                            <div className="min-w-44">
+
+                                <div className="flex items-end justify-between">
+
+                                    <span className="text-xs text-white/30">
+                                        Overall usage
+                                    </span>
+
+                                    <span className="text-lg font-bold">
+                                        {Math.min(
+                                            totals.percentage,
+                                            999
+                                        ).toFixed(1)}
+                                        %
+                                    </span>
+
+                                </div>
+
+
+                                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5">
+
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-700 ${
+    totals.percentage >= 100
+        ? "bg-rose-400"
+        : totals.percentage >= 90
+            ? "bg-amber-400"
+            : "bg-violet-400"
+}`}
+                                        style={{
+                                            width:
+                                                `${Math.min(
+    totals.percentage,
+    100
+)}%`,
+                                        }}
+                                    />
+
+                                </div>
+
+
+                                <p className="mt-2 text-xs text-white/25">
+
+                                    ₹
+                                    {totals.spent.toLocaleString(
+                                        "en-IN"
+                                    )}
+
+                                    {" of "}
+
+                                    ₹
+                                    {totals.budget.toLocaleString(
+                                        "en-IN"
+                                    )}
+
+                                </p>
+
+                            </div>
+
+
+                            {/* STATUS COUNTS */}
+
+                            <div className="grid grid-cols-3 gap-3">
+
+                                <div className="rounded-2xl border border-white/5 bg-white/[0.025] px-4 py-3">
+
+                                    <p className="text-lg font-bold text-emerald-400">
+                                        {budgetHealth.healthy}
+                                    </p>
+
+                                    <p className="mt-1 text-[10px] uppercase tracking-wider text-white/25">
+                                        Healthy
+                                    </p>
+
+                                </div>
+
+
+                                <div className="rounded-2xl border border-white/5 bg-white/[0.025] px-4 py-3">
+
+                                    <p className="text-lg font-bold text-amber-400">
+                                        {budgetHealth.warning}
+                                    </p>
+
+                                    <p className="mt-1 text-[10px] uppercase tracking-wider text-white/25">
+                                        Watch
+                                    </p>
+
+                                </div>
+
+
+                                <div className="rounded-2xl border border-white/5 bg-white/[0.025] px-4 py-3">
+
+                                    <p className="text-lg font-bold text-rose-400">
+                                        {budgetHealth.danger}
+                                    </p>
+
+                                    <p className="mt-1 text-[10px] uppercase tracking-wider text-white/25">
+                                        Risk
+                                    </p>
+
+                                </div>
+
+                            </div>
 
                         </div>
 
@@ -525,10 +788,12 @@ export default function Budgets() {
 
 
                         <p className="mt-5 text-2xl font-bold">
+
                             ₹
                             {totals.budget.toLocaleString(
                                 "en-IN"
                             )}
+
                         </p>
 
                     </Card>
@@ -543,10 +808,12 @@ export default function Budgets() {
                         </p>
 
                         <p className="mt-5 text-2xl font-bold text-rose-400">
+
                             ₹
                             {totals.spent.toLocaleString(
                                 "en-IN"
                             )}
+
                         </p>
 
                     </Card>
@@ -562,8 +829,7 @@ export default function Budgets() {
 
                         <p
                             className={`mt-5 text-2xl font-bold ${
-    totals.remaining >=
-    0
+    totals.remaining >= 0
         ? "text-emerald-400"
         : "text-rose-400"
 }`}
@@ -609,7 +875,13 @@ export default function Budgets() {
 
                 <section>
 
-                    <div className="mb-4 flex items-center justify-between">
+
+                    {/* SECTION HEADER */}
+
+                    <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+
+                        {/* LEFT */}
 
                         <div>
 
@@ -623,8 +895,26 @@ export default function Budgets() {
 
                         </div>
 
+
+                        {/* RIGHT */}
+
+                        <Button
+                            onClick={openCreate}
+                            className="w-fit rounded-xl bg-white text-black hover:bg-white/90"
+                        >
+
+                            <Plus
+                                size={17}
+                            />
+
+                            Add budget
+
+                        </Button>
+
                     </div>
 
+
+                    {/* LOADING */}
 
                     {isLoading ? (
 
@@ -641,9 +931,7 @@ export default function Budgets() {
                                 ) => (
 
                                     <Card
-                                        key={
-                                            index
-                                        }
+                                        key={index}
                                         className="h-48 animate-pulse rounded-3xl border-white/10 bg-white/[0.025]"
                                     />
 
@@ -652,7 +940,11 @@ export default function Budgets() {
 
                         </div>
 
+
                     ) : budgets.length === 0 ? (
+
+
+                        /* EMPTY STATE */
 
                         <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] px-6 py-20 text-center">
 
@@ -671,14 +963,14 @@ export default function Budgets() {
 
 
                             <p className="mx-auto mt-2 max-w-sm text-sm text-white/30">
+
                                 Create a budget for {monthName} to start tracking your spending.
+
                             </p>
 
 
                             <Button
-                                onClick={
-                                    openCreate
-                                }
+                                onClick={openCreate}
                                 className="mt-6 rounded-xl bg-white text-black hover:bg-white/90"
                             >
 
@@ -692,7 +984,11 @@ export default function Budgets() {
 
                         </Card>
 
+
                     ) : (
+
+
+                        /* BUDGET CARDS */
 
                         <div className="grid gap-4 lg:grid-cols-2">
 
@@ -701,10 +997,33 @@ export default function Budgets() {
                                     budget
                                 ) => {
 
-                                    const exceeded =
-                                        budget.spent >
-                                        budget.budget
 
+                                    // =================================================
+                                    // CATEGORY STATUS
+                                    // =================================================
+
+                                    const exceeded =
+                                        budget.percentage > 100
+
+
+                                    const nearLimit =
+                                        budget.percentage >= 90 &&
+                                        budget.percentage <= 100
+
+
+                                    const status =
+                                        exceeded
+                                            ? "Over budget"
+                                            : nearLimit
+                                                ? "Near limit"
+                                                : budget.percentage >= 70
+                                                    ? "Watch spending"
+                                                    : "Healthy"
+
+
+                                    // =================================================
+                                    // PROGRESS
+                                    // =================================================
 
                                     const displayPercentage =
                                         Math.min(
@@ -722,8 +1041,13 @@ export default function Budgets() {
                                             className="group rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 transition hover:border-white/[0.14]"
                                         >
 
+
+                                            {/* TOP */}
+
                                             <div className="flex items-start justify-between">
 
+
+                                                {/* CATEGORY */}
 
                                                 <div>
 
@@ -749,6 +1073,7 @@ export default function Budgets() {
 
                                                             </h3>
 
+
                                                             <p className="mt-0.5 text-xs text-white/25">
                                                                 Monthly limit
                                                             </p>
@@ -760,6 +1085,8 @@ export default function Budgets() {
                                                 </div>
 
 
+                                                {/* ACTIONS */}
+
                                                 <div className="flex gap-1">
 
                                                     <button
@@ -769,6 +1096,7 @@ export default function Budgets() {
                                                             )
                                                         }
                                                         className="rounded-lg p-2 text-white/25 transition hover:bg-white/5 hover:text-white"
+                                                        aria-label={`Edit ${budget.category.name} budget`}
                                                     >
 
                                                         <Pencil
@@ -787,7 +1115,8 @@ export default function Budgets() {
                                                         disabled={
                                                             deleteMutation.isPending
                                                         }
-                                                        className="rounded-lg p-2 text-white/25 transition hover:bg-rose-500/10 hover:text-rose-400"
+                                                        className="rounded-lg p-2 text-white/25 transition hover:bg-rose-500/10 hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-40"
+                                                        aria-label={`Delete ${budget.category.name} budget`}
                                                     >
 
                                                         <Trash2
@@ -816,6 +1145,7 @@ export default function Budgets() {
 
                                                     </p>
 
+
                                                     <p className="mt-1 text-xs text-white/30">
 
                                                         of ₹
@@ -828,36 +1158,55 @@ export default function Budgets() {
                                                 </div>
 
 
+                                                {/* STATUS */}
+
                                                 <div className="text-right">
 
-                                                    {exceeded ? (
+                                                    <div
+                                                        className={`flex items-center gap-1 text-xs font-medium ${
+    exceeded
+        ? "text-rose-400"
+        : nearLimit
+            ? "text-amber-400"
+            : budget.percentage >= 70
+                ? "text-amber-400"
+                : "text-emerald-400"
+}`}
+                                                    >
 
-                                                        <div className="flex items-center gap-1 text-xs font-medium text-rose-400">
+                                                        {exceeded ? (
 
                                                             <AlertTriangle
                                                                 size={14}
                                                             />
 
-                                                            Over budget
+                                                        ) : nearLimit ? (
 
-                                                        </div>
+                                                            <AlertTriangle
+                                                                size={14}
+                                                            />
 
-                                                    ) : (
-
-                                                        <div className="flex items-center gap-1 text-xs font-medium text-emerald-400">
+                                                        ) : (
 
                                                             <CheckCircle2
                                                                 size={14}
                                                             />
 
-                                                            {budget.percentage.toFixed(
-                                                                0
-                                                            )}
-                                                            % used
+                                                        )}
 
-                                                        </div>
+                                                        {status}
 
-                                                    )}
+                                                    </div>
+
+
+                                                    <p className="mt-1 text-[11px] text-white/25">
+
+                                                        {budget.percentage.toFixed(
+                                                            0
+                                                        )}
+                                                        % used
+
+                                                    </p>
 
                                                 </div>
 
@@ -874,7 +1223,11 @@ export default function Budgets() {
                                                         className={`h-full rounded-full transition-all duration-700 ${
     exceeded
         ? "bg-rose-400"
-        : "bg-violet-400"
+        : nearLimit
+            ? "bg-amber-400"
+            : budget.percentage >= 70
+                ? "bg-amber-400"
+                : "bg-violet-400"
 }`}
                                                         style={{
                                                             width:
@@ -972,4 +1325,5 @@ export default function Budgets() {
         </div>
 
     )
+
 }
