@@ -5,7 +5,9 @@ import {
     Type,
     FileText,
 } from "lucide-react"
+
 import { toast } from "sonner"
+
 import { useEffect } from "react"
 
 import {
@@ -60,6 +62,10 @@ function TransactionDialog({
     const isEditing = Boolean(transaction)
 
 
+    // =====================================================
+    // FORM
+    // =====================================================
+
     const {
         register,
         handleSubmit,
@@ -73,11 +79,13 @@ function TransactionDialog({
 
         defaultValues: {
             title: transaction?.title ?? "",
-            amount: transaction?.amount ?? undefined,
-            type: transaction?.type ?? "EXPENSE",
 
-            // Backend returns an object.
-            // Form needs the category name as a string.
+            amount:
+                transaction?.amount ?? 0,
+
+            type:
+                transaction?.type ?? "EXPENSE",
+
             category:
                 transaction?.category ?? "Food",
 
@@ -90,6 +98,10 @@ function TransactionDialog({
     })
 
 
+    // =====================================================
+    // RESET FORM WHEN DIALOG OPENS / TRANSACTION CHANGES
+    // =====================================================
+
     useEffect(() => {
 
         if (!open) {
@@ -97,13 +109,25 @@ function TransactionDialog({
         }
 
         reset({
-            title: transaction?.title ?? "",
-            amount: transaction?.amount ?? undefined,
-            type: transaction?.type ?? "EXPENSE",
-            category: transaction?.category ?? "Food",
+            title:
+                transaction?.title ?? "",
+
+            amount:
+                transaction?.amount ?? 0,
+
+            type:
+                transaction?.type ?? "EXPENSE",
+
+            // Backend gives Category object.
+            // Form requires category name string.
+            category:
+                transaction?.category ?? "Food",
+
             date:
                 transaction?.date ??
-                new Date().toISOString().split("T")[0],
+                new Date()
+                    .toISOString()
+                    .split("T")[0],
         })
 
     }, [
@@ -113,76 +137,97 @@ function TransactionDialog({
     ])
 
 
+    // =====================================================
+    // SUBMIT
+    // =====================================================
+
+    const onSubmit: SubmitHandler<TransactionFormData> =
+        async (data) => {
+
+            try {
+
+                // ==========================================
+                // UPDATE
+                // ==========================================
+
+                if (
+                    isEditing &&
+                    transaction
+                ) {
+
+                    await updateTransaction(
+                        transaction.id,
+                        data
+                    )
+
+                    toast.success(
+                        "Transaction updated",
+                        {
+                            description:
+                                `${data.title} was updated successfully.`,
+                        }
+                    )
+
+                }
+
+                    // ==========================================
+                    // CREATE
+                // ==========================================
+
+                else {
+
+                    await createTransaction(
+                        data
+                    )
+
+                    toast.success(
+                        "Transaction added",
+                        {
+                            description:
+                                `${data.title} was added successfully.`,
+                        }
+                    )
+                }
+
+
+                // Refresh transaction data
+                onSuccess()
+
+                // Close dialog
+                onClose()
+
+            } catch (error) {
+
+                console.error(
+                    "Transaction save failed:",
+                    error
+                )
+
+                toast.error(
+                    isEditing
+                        ? "Update failed"
+                        : "Couldn't add transaction",
+                    {
+                        description:
+                            "Something went wrong. Please try again.",
+                    }
+                )
+            }
+        }
+
+
+    // =====================================================
+    // DON'T RENDER WHEN CLOSED
+    // =====================================================
+
     if (!open) {
         return null
     }
 
 
-    const onSubmit = async (
-        data: TransactionFormData
-    ) => {
-
-        try {
-
-            if (
-                isEditing &&
-                transaction
-            ) {
-
-                await updateTransaction(
-                    transaction.id,
-                    data
-                )
-
-                toast.success(
-                    "Transaction updated",
-                    {
-                        description:
-                            `${data.title} was updated successfully.`,
-                    }
-                )
-
-            } else {
-
-                await createTransaction(
-                    data
-                )
-
-                toast.success(
-                    "Transaction added",
-                    {
-                        description:
-                            `${data.title} was added successfully.`,
-                    }
-                )
-
-            }
-
-            onSuccess()
-
-            onClose()
-
-        } catch (error) {
-
-            console.error(
-                "Transaction save failed:",
-                error
-            )
-
-            toast.error(
-                isEditing
-                    ? "Update failed"
-                    : "Couldn't add transaction",
-                {
-                    description:
-                        "Something went wrong. Please try again.",
-                }
-            )
-
-        }
-
-    }
-
+    // =====================================================
+    // UI
+    // =====================================================
 
     return (
 
@@ -200,24 +245,33 @@ function TransactionDialog({
 
             <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-3xl border border-white/10 bg-[#111318] shadow-2xl shadow-black/50">
 
+
                 {/* HEADER */}
 
                 <div className="border-b border-white/[0.07] px-6 py-5">
 
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-400">
+
                         {isEditing
                             ? "Edit transaction"
                             : "New transaction"}
+
                     </p>
 
+
                     <h2 className="mt-2 text-xl font-bold text-white">
+
                         {isEditing
                             ? "Update your transaction"
                             : "Add a transaction"}
+
                     </h2>
 
+
                     <p className="mt-1 text-sm text-white/35">
+
                         Keep your financial activity organized.
+
                     </p>
 
                 </div>
@@ -229,6 +283,7 @@ function TransactionDialog({
                     onSubmit={handleSubmit(onSubmit)}
                     className="space-y-5 p-6"
                 >
+
 
                     {/* TITLE */}
 
@@ -242,16 +297,20 @@ function TransactionDialog({
 
                         </label>
 
+
                         <input
                             {...register("title")}
                             placeholder="e.g. Lunch at restaurant"
                             className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-violet-400/50 focus:bg-white/[0.05]"
                         />
 
+
                         {errors.title && (
 
                             <p className="mt-1.5 text-xs text-rose-400">
+
                                 {errors.title.message}
+
                             </p>
 
                         )}
@@ -271,6 +330,7 @@ function TransactionDialog({
 
                         </label>
 
+
                         <input
                             type="number"
                             min="0.01"
@@ -282,10 +342,13 @@ function TransactionDialog({
                             className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-violet-400/50 focus:bg-white/[0.05]"
                         />
 
+
                         {errors.amount && (
 
                             <p className="mt-1.5 text-xs text-rose-400">
+
                                 {errors.amount.message}
+
                             </p>
 
                         )}
@@ -308,6 +371,9 @@ function TransactionDialog({
 
                         <div className="grid grid-cols-2 gap-2">
 
+
+                            {/* EXPENSE */}
+
                             <label className="cursor-pointer">
 
                                 <input
@@ -318,11 +384,15 @@ function TransactionDialog({
                                 />
 
                                 <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-sm text-white/40 transition peer-checked:border-rose-400/40 peer-checked:bg-rose-400/10 peer-checked:text-rose-400">
+
                                     Expense
+
                                 </div>
 
                             </label>
 
+
+                            {/* INCOME */}
 
                             <label className="cursor-pointer">
 
@@ -334,7 +404,9 @@ function TransactionDialog({
                                 />
 
                                 <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-sm text-white/40 transition peer-checked:border-emerald-400/40 peer-checked:bg-emerald-400/10 peer-checked:text-emerald-400">
+
                                     Income
+
                                 </div>
 
                             </label>
@@ -356,6 +428,7 @@ function TransactionDialog({
 
                         </label>
 
+
                         <select
                             {...register("category")}
                             className="h-11 w-full rounded-xl border border-white/10 bg-[#15171d] px-4 text-sm text-white outline-none focus:border-violet-400/50"
@@ -376,10 +449,13 @@ function TransactionDialog({
 
                         </select>
 
+
                         {errors.category && (
 
                             <p className="mt-1.5 text-xs text-rose-400">
+
                                 {errors.category.message}
+
                             </p>
 
                         )}
@@ -399,16 +475,20 @@ function TransactionDialog({
 
                         </label>
 
+
                         <input
                             type="date"
                             {...register("date")}
                             className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none focus:border-violet-400/50"
                         />
 
+
                         {errors.date && (
 
                             <p className="mt-1.5 text-xs text-rose-400">
+
                                 {errors.date.message}
+
                             </p>
 
                         )}
@@ -420,6 +500,9 @@ function TransactionDialog({
 
                     <div className="flex justify-end gap-3 border-t border-white/[0.07] pt-5">
 
+
+                        {/* CANCEL */}
+
                         <Button
                             type="button"
                             variant="ghost"
@@ -429,6 +512,8 @@ function TransactionDialog({
                             Cancel
                         </Button>
 
+
+                        {/* SUBMIT */}
 
                         <Button
                             type="submit"

@@ -137,6 +137,12 @@ function Transactions() {
                     ],
                 })
 
+                queryClient.invalidateQueries({
+                    queryKey: [
+                        "budgets",
+                    ],
+                })
+
                 toast.success(
                     "Transaction deleted",
                     {
@@ -1846,6 +1852,12 @@ function Transactions() {
                     queryClient.invalidateQueries({
                         queryKey: [
                             "summary",
+                        ],
+                    })
+
+                    queryClient.invalidateQueries({
+                        queryKey: [
+                            "budgets",
                         ],
                     })
 
