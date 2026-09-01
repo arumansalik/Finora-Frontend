@@ -1,333 +1,100 @@
-import type { Transaction } from "@/services/transactionApi"
-
-
-// =====================================================
-// TYPES
-// =====================================================
-
-export interface MonthMetrics {
-    income: number
-    expense: number
-    savings: number
+export interface FinancialHealth {
+    score: number
+    label: string
 }
 
 
-export interface ComparisonResult {
-    current: MonthMetrics
-    previous: MonthMetrics
+export function calculateFinancialHealth(
+    savingsRate: number,
+    expenseChange: number,
+    budgetPercentage: number
+): FinancialHealth {
 
-    expenseChange: number
-    incomeChange: number
-    savingsChange: number
-}
+    let score = 50
 
 
-// =====================================================
-// GET MONTH METRICS
-// =====================================================
+    // Savings rate
 
-function getMonthMetrics(
-    transactions: Transaction[],
-    year: number,
-    month: number
-): MonthMetrics {
+    if (savingsRate >= 30) {
 
-    const monthTransactions =
-        transactions.filter(
-            (transaction) => {
+        score += 25
 
-                if (!transaction.date) {
-                    return false
-                }
+    } else if (savingsRate >= 20) {
 
-                const date =
-                    new Date(
-                        `${transaction.date}T00:00:00`
-                    )
+        score += 18
 
-                return (
-                    date.getFullYear() === year &&
-                    date.getMonth() === month
-                )
-            }
+    } else if (savingsRate >= 10) {
+
+        score += 10
+
+    } else if (savingsRate < 0) {
+
+        score -= 20
+    }
+
+
+    // Expense trend
+
+    if (expenseChange < 0) {
+
+        score += 10
+
+    } else if (expenseChange > 20) {
+
+        score -= 10
+    }
+
+
+    // Budget usage
+
+    if (budgetPercentage <= 70) {
+
+        score += 15
+
+    } else if (budgetPercentage <= 85) {
+
+        score += 8
+
+    } else if (
+        budgetPercentage >= 100
+    ) {
+
+        score -= 20
+    }
+
+
+    score = Math.max(
+        0,
+        Math.min(
+            100,
+            score
         )
+    )
 
 
-    // =====================================================
-    // INCOME
-    // =====================================================
-
-    const income =
-        monthTransactions
-            .filter(
-                (transaction) =>
-                    transaction.type === "INCOME"
-            )
-            .reduce(
-                (
-                    total,
-                    transaction
-                ) =>
-                    total +
-                    Math.abs(
-                        Number(
-                            transaction.amount
-                        ) || 0
-                    ),
-                0
-            )
+    let label =
+        "Needs attention"
 
 
-    // =====================================================
-    // EXPENSE
-    // =====================================================
+    if (score >= 85) {
 
-    const expense =
-        monthTransactions
-            .filter(
-                (transaction) =>
-                    transaction.type === "EXPENSE"
-            )
-            .reduce(
-                (
-                    total,
-                    transaction
-                ) =>
-                    total +
-                    Math.abs(
-                        Number(
-                            transaction.amount
-                        ) || 0
-                    ),
-                0
-            )
+        label =
+            "Excellent"
 
+    } else if (score >= 70) {
 
-    // =====================================================
-    // SAVINGS
-    // =====================================================
+        label =
+            "Healthy"
 
-    const savings =
-        income - expense
+    } else if (score >= 50) {
+
+        label =
+            "Fair"
+    }
 
 
     return {
-        income,
-        expense,
-        savings,
-    }
-}
-
-
-// =====================================================
-// PERCENTAGE CHANGE
-// =====================================================
-
-function percentageChange(
-    current: number,
-    previous: number
-): number {
-
-    /*
-     * If there is no previous value:
-     *
-     * 0 -> 0 = no change
-     * 0 -> value = 100%
-     */
-
-    if (previous === 0) {
-
-        if (current === 0) {
-            return 0
-        }
-
-        return 100
-    }
-
-
-    return (
-        (
-            current - previous
-        ) /
-        Math.abs(previous)
-    ) * 100
-}
-
-
-// =====================================================
-// SAVINGS CHANGE
-// =====================================================
-
-function savingsPercentageChange(
-    current: number,
-    previous: number
-): number {
-
-    /*
-     * Normal case:
-     *
-     * Previous savings = 10,000
-     * Current savings  = 12,000
-     *
-     * Change = +20%
-     */
-
-    if (previous > 0) {
-
-        return (
-            (
-                current - previous
-            ) /
-            previous
-        ) * 100
-    }
-
-
-    /*
-     * Both months have zero savings.
-     */
-
-    if (
-        previous === 0 &&
-        current === 0
-    ) {
-        return 0
-    }
-
-
-    /*
-     * Previous month had zero savings
-     * and current month has positive savings.
-     */
-
-    if (
-        previous === 0 &&
-        current > 0
-    ) {
-        return 100
-    }
-
-
-    /*
-     * Previous month was a deficit.
-     *
-     * Example:
-     *
-     * July:  -₹5,000
-     * August: -₹2,000
-     *
-     * This is an improvement.
-     */
-
-    if (
-        previous < 0 &&
-        current > previous
-    ) {
-        return 100
-    }
-
-
-    /*
-     * Previous month was a deficit
-     * and the current deficit is worse.
-     *
-     * Example:
-     *
-     * July:  -₹2,000
-     * August: -₹5,000
-     */
-
-    if (
-        previous < 0 &&
-        current < previous
-    ) {
-        return -100
-    }
-
-
-    return 0
-}
-
-
-// =====================================================
-// BUILD MONTH COMPARISON
-// =====================================================
-
-export function buildMonthComparison(
-    transactions: Transaction[],
-    year: number,
-    month: number
-): ComparisonResult {
-
-    // =====================================================
-    // CURRENT MONTH
-    // =====================================================
-
-    const current =
-        getMonthMetrics(
-            transactions,
-            year,
-            month
-        )
-
-
-    // =====================================================
-    // PREVIOUS MONTH
-    // =====================================================
-
-    /*
-     * JavaScript Date automatically handles
-     * year changes.
-     *
-     * Example:
-     *
-     * selected month = January 2026
-     *
-     * previous month = December 2025
-     */
-
-    const previousDate =
-        new Date(
-            year,
-            month - 1,
-            1
-        )
-
-
-    const previous =
-        getMonthMetrics(
-            transactions,
-            previousDate.getFullYear(),
-            previousDate.getMonth()
-        )
-
-
-    // =====================================================
-    // RETURN RESULT
-    // =====================================================
-
-    return {
-
-        current,
-
-        previous,
-
-        expenseChange:
-            percentageChange(
-                current.expense,
-                previous.expense
-            ),
-
-        incomeChange:
-            percentageChange(
-                current.income,
-                previous.income
-            ),
-
-        savingsChange:
-            savingsPercentageChange(
-                current.savings,
-                previous.savings
-            ),
+        score,
+        label,
     }
 }
