@@ -1,6 +1,5 @@
 import type { Transaction } from "@/services/transactionApi"
 
-
 // =====================================================
 // TYPES
 // =====================================================
@@ -11,16 +10,13 @@ export interface MonthMetrics {
     savings: number
 }
 
-
 export interface ComparisonResult {
     current: MonthMetrics
     previous: MonthMetrics
-
     expenseChange: number
     incomeChange: number
     savingsChange: number
 }
-
 
 // =====================================================
 // GET MONTH METRICS
@@ -31,27 +27,21 @@ function getMonthMetrics(
     year: number,
     month: number
 ): MonthMetrics {
-
     const monthTransactions =
-        transactions.filter(
-            (transaction) => {
-
-                if (!transaction.date) {
-                    return false
-                }
-
-                const date =
-                    new Date(
-                        `${transaction.date}T00:00:00`
-                    )
-
-                return (
-                    date.getFullYear() === year &&
-                    date.getMonth() === month
-                )
+        transactions.filter((transaction) => {
+            if (!transaction.date) {
+                return false
             }
-        )
 
+            const date = new Date(
+                `${transaction.date}T00:00:00`
+            )
+
+            return (
+                date.getFullYear() === year &&
+                date.getMonth() === month
+            )
+        })
 
     // =====================================================
     // INCOME
@@ -64,19 +54,13 @@ function getMonthMetrics(
                     transaction.type === "INCOME"
             )
             .reduce(
-                (
-                    total,
-                    transaction
-                ) =>
+                (total, transaction) =>
                     total +
                     Math.abs(
-                        Number(
-                            transaction.amount
-                        ) || 0
+                        Number(transaction.amount) || 0
                     ),
                 0
             )
-
 
     // =====================================================
     // EXPENSE
@@ -89,19 +73,13 @@ function getMonthMetrics(
                     transaction.type === "EXPENSE"
             )
             .reduce(
-                (
-                    total,
-                    transaction
-                ) =>
+                (total, transaction) =>
                     total +
                     Math.abs(
-                        Number(
-                            transaction.amount
-                        ) || 0
+                        Number(transaction.amount) || 0
                     ),
                 0
             )
-
 
     // =====================================================
     // SAVINGS
@@ -110,14 +88,12 @@ function getMonthMetrics(
     const savings =
         income - expense
 
-
     return {
         income,
         expense,
         savings,
     }
 }
-
 
 // =====================================================
 // PERCENTAGE CHANGE
@@ -127,16 +103,7 @@ function percentageChange(
     current: number,
     previous: number
 ): number {
-
-    /*
-     * If there is no previous value:
-     *
-     * 0 -> 0 = no change
-     * 0 -> value = 100%
-     */
-
     if (previous === 0) {
-
         if (current === 0) {
             return 0
         }
@@ -144,15 +111,11 @@ function percentageChange(
         return 100
     }
 
-
     return (
-        (
-            current - previous
-        ) /
+        (current - previous) /
         Math.abs(previous)
     ) * 100
 }
-
 
 // =====================================================
 // SAVINGS CHANGE
@@ -162,30 +125,20 @@ function savingsPercentageChange(
     current: number,
     previous: number
 ): number {
-
-    /*
-     * Normal case:
-     *
-     * Previous savings = 10,000
-     * Current savings  = 12,000
-     *
-     * Change = +20%
-     */
+    // ---------------------------------------------
+    // Normal positive savings comparison
+    // ---------------------------------------------
 
     if (previous > 0) {
-
         return (
-            (
-                current - previous
-            ) /
+            (current - previous) /
             previous
         ) * 100
     }
 
-
-    /*
-     * Both months have zero savings.
-     */
+    // ---------------------------------------------
+    // Both are zero
+    // ---------------------------------------------
 
     if (
         previous === 0 &&
@@ -194,11 +147,9 @@ function savingsPercentageChange(
         return 0
     }
 
-
-    /*
-     * Previous month had zero savings
-     * and current month has positive savings.
-     */
+    // ---------------------------------------------
+    // Zero → positive savings
+    // ---------------------------------------------
 
     if (
         previous === 0 &&
@@ -207,17 +158,9 @@ function savingsPercentageChange(
         return 100
     }
 
-
-    /*
-     * Previous month was a deficit.
-     *
-     * Example:
-     *
-     * July:  -₹5,000
-     * August: -₹2,000
-     *
-     * This is an improvement.
-     */
+    // ---------------------------------------------
+    // Previous deficit → improvement
+    // ---------------------------------------------
 
     if (
         previous < 0 &&
@@ -226,16 +169,9 @@ function savingsPercentageChange(
         return 100
     }
 
-
-    /*
-     * Previous month was a deficit
-     * and the current deficit is worse.
-     *
-     * Example:
-     *
-     * July:  -₹2,000
-     * August: -₹5,000
-     */
+    // ---------------------------------------------
+    // Previous deficit → worse deficit
+    // ---------------------------------------------
 
     if (
         previous < 0 &&
@@ -244,10 +180,8 @@ function savingsPercentageChange(
         return -100
     }
 
-
     return 0
 }
-
 
 // =====================================================
 // BUILD MONTH COMPARISON
@@ -258,7 +192,6 @@ export function buildMonthComparison(
     year: number,
     month: number
 ): ComparisonResult {
-
     // =====================================================
     // CURRENT MONTH
     // =====================================================
@@ -270,21 +203,9 @@ export function buildMonthComparison(
             month
         )
 
-
     // =====================================================
     // PREVIOUS MONTH
     // =====================================================
-
-    /*
-     * JavaScript Date automatically handles
-     * year changes.
-     *
-     * Example:
-     *
-     * selected month = January 2026
-     *
-     * previous month = December 2025
-     */
 
     const previousDate =
         new Date(
@@ -293,7 +214,6 @@ export function buildMonthComparison(
             1
         )
 
-
     const previous =
         getMonthMetrics(
             transactions,
@@ -301,15 +221,12 @@ export function buildMonthComparison(
             previousDate.getMonth()
         )
 
-
     // =====================================================
-    // RETURN RESULT
+    // RETURN
     // =====================================================
 
     return {
-
         current,
-
         previous,
 
         expenseChange:
