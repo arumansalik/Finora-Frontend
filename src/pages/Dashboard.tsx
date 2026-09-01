@@ -12,16 +12,16 @@ import {
     TrendingUp,
     TrendingDown,
     Sparkles,
+    Repeat2,
 } from "lucide-react"
-import {
-    calculateFinancialHealth,
-} from "@/utils/financialHealth"
-import {
 
-    calculateFinancialInsights,
-} from "@/utils/financialInsights"
-import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import {
+    useMemo,
+} from "react"
+
+import {
+    useQuery,
+} from "@tanstack/react-query"
 
 import {
     Area,
@@ -38,13 +38,46 @@ import {
     YAxis,
 } from "recharts"
 
-import { getSummary } from "@/services/summaryApi"
-import { getTransactions } from "@/services/transactionApi"
+import {
+    getSummary,
+} from "@/services/summaryApi"
 
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import {
+    getTransactions,
+} from "@/services/transactionApi"
+
+import {
+    getDashboardRecurring,
+} from "@/services/dashboardApi"
+
+import {
+    Button,
+} from "@/components/ui/button"
+
+import {
+    Card,
+} from "@/components/ui/card"
+
+import {
+    calculateFinancialHealth,
+} from "@/utils/financialHealth"
+
+import {
+    calculateFinancialInsights,
+} from "@/utils/financialInsights"
+
 
 function Dashboard() {
+
+    // =====================================================
+    // AUTHENTICATION
+    // =====================================================
+
+    const token =
+        localStorage.getItem(
+            "token"
+        )
+
 
     // =====================================================
     // API — SUMMARY
@@ -55,8 +88,23 @@ function Dashboard() {
         isLoading: summaryLoading,
         isError: summaryError,
     } = useQuery({
-        queryKey: ["summary"],
-        queryFn: getSummary,
+
+        queryKey: [
+            "dashboard-summary",
+        ],
+
+        queryFn:
+        getSummary,
+
+        enabled:
+            Boolean(token),
+
+        staleTime:
+            30 * 1000,
+
+        refetchOnWindowFocus:
+            false,
+
     })
 
 
@@ -69,32 +117,87 @@ function Dashboard() {
         isLoading: transactionsLoading,
         isError: transactionsError,
     } = useQuery({
-        queryKey: ["transactions"],
-        queryFn: getTransactions,
+
+        queryKey: [
+            "dashboard-transactions",
+        ],
+
+        queryFn:
+        getTransactions,
+
+        enabled:
+            Boolean(token),
+
+        staleTime:
+            30 * 1000,
+
+        refetchOnWindowFocus:
+            false,
+
     })
 
-    console.log("TRANSACTIONS:", transactions)
+
+    // =====================================================
+    // API — RECURRING TRANSACTIONS
+    // =====================================================
+
+    const {
+        data: recurring = [],
+        isLoading: recurringLoading,
+        isError: recurringError,
+    } = useQuery({
+
+        queryKey: [
+            "dashboard-recurring",
+        ],
+
+        queryFn:
+        getDashboardRecurring,
+
+        enabled:
+            Boolean(token),
+
+        staleTime:
+            30 * 1000,
+
+        refetchOnWindowFocus:
+            false,
+
+    })
 
 
     // =====================================================
     // SAVINGS RATE
     // =====================================================
 
-    const savingsRate = useMemo(() => {
+    const savingsRate =
+        useMemo(() => {
 
-        if (!summary || summary.totalIncome <= 0) {
-            return 0
-        }
+            if (
+                !summary ||
+                summary.totalIncome <= 0
+            ) {
+                return 0
+            }
 
-        return (
-            (
-                (summary.totalIncome -
-                    summary.totalExpense) /
-                summary.totalIncome
-            ) * 100
-        )
+            return (
+                (
+                    (
+                        summary.totalIncome -
+                        summary.totalExpense
+                    ) /
+                    summary.totalIncome
+                ) * 100
+            )
 
-    }, [summary])
+        }, [
+            summary,
+        ])
+
+
+    // =====================================================
+    // FINANCIAL INSIGHTS
+    // =====================================================
 
     const insights =
         useMemo(
@@ -102,8 +205,15 @@ function Dashboard() {
                 calculateFinancialInsights(
                     transactions
                 ),
-            [transactions]
+            [
+                transactions,
+            ]
         )
+
+
+    // =====================================================
+    // FINANCIAL HEALTH
+    // =====================================================
 
     const health =
         useMemo(
@@ -120,186 +230,247 @@ function Dashboard() {
 
 
     // =====================================================
+    // UPCOMING RECURRING TRANSACTIONS
+    // =====================================================
+
+    const upcomingRecurring =
+        useMemo(() => {
+
+            return recurring
+                .filter(
+                    item =>
+                        item.active
+                )
+                .sort(
+                    (a, b) =>
+                        a.nextDate.localeCompare(
+                            b.nextDate
+                        )
+                )
+                .slice(
+                    0,
+                    5
+                )
+
+        }, [
+            recurring,
+        ])
+
+
+    // =====================================================
     // CATEGORY BREAKDOWN
     // =====================================================
 
-    const categoryData = useMemo(() => {
+    const categoryData =
+        useMemo(() => {
 
-        const totals: Record<string, number> = {}
+            const totals:
+                Record<
+                    string,
+                    number
+                > = {}
 
-        transactions
-            .filter(
-                (transaction) =>
-                    transaction.type === "EXPENSE"
+            transactions
+                .filter(
+                    transaction =>
+                        transaction.type ===
+                        "EXPENSE"
+                )
+                .forEach(
+                    transaction => {
+
+                        const category =
+                            transaction.category ||
+                            "Other"
+
+                        totals[category] =
+                            (
+                                totals[category] ??
+                                0
+                            ) +
+                            transaction.amount
+
+                    }
+                )
+
+            return Object.entries(
+                totals
             )
-            .forEach(
-                (transaction) => {
+                .map(
+                    (
+                        [
+                            name,
+                            value,
+                        ]
+                    ) => ({
+                        name,
+                        value,
+                    })
+                )
+                .sort(
+                    (
+                        a,
+                        b
+                    ) =>
+                        b.value -
+                        a.value
+                )
 
-                    const category =
-                        transaction.category ??
-                        "Other"
-
-                    totals[category] =
-                        (
-                            totals[category] ??
-                            0
-                        ) +
-                        transaction.amount
-                }
-            )
-
-        return Object.entries(totals)
-            .map(
-                ([
-                    name,
-                    value,
-                ]) => ({
-                    name,
-                    value,
-                })
-            )
-            .sort(
-                (
-                    a,
-                    b
-                ) =>
-                    b.value -
-                    a.value
-            )
-
-    }, [transactions])
+        }, [
+            transactions,
+        ])
 
 
     // =====================================================
     // INCOME / EXPENSE DATA
     // =====================================================
 
-    const incomeExpenseData = useMemo(() => {
+    const incomeExpenseData =
+        useMemo(() => {
 
-        const income =
-            transactions
-                .filter(
-                    (transaction) =>
-                        transaction.type ===
-                        "INCOME"
-                )
-                .reduce(
-                    (
-                        total,
-                        transaction
-                    ) =>
-                        total +
-                        transaction.amount,
-                    0
-                )
+            const income =
+                transactions
+                    .filter(
+                        transaction =>
+                            transaction.type ===
+                            "INCOME"
+                    )
+                    .reduce(
+                        (
+                            total,
+                            transaction
+                        ) =>
+                            total +
+                            transaction.amount,
+                        0
+                    )
 
-        const expense =
-            transactions
-                .filter(
-                    (transaction) =>
-                        transaction.type ===
-                        "EXPENSE"
-                )
-                .reduce(
-                    (
-                        total,
-                        transaction
-                    ) =>
-                        total +
-                        transaction.amount,
-                    0
-                )
+            const expense =
+                transactions
+                    .filter(
+                        transaction =>
+                            transaction.type ===
+                            "EXPENSE"
+                    )
+                    .reduce(
+                        (
+                            total,
+                            transaction
+                        ) =>
+                            total +
+                            transaction.amount,
+                        0
+                    )
 
-        return [
-            {
-                name: "Income",
-                amount: income,
-            },
-            {
-                name: "Expenses",
-                amount: expense,
-            },
-        ]
+            return [
+                {
+                    name: "Income",
+                    amount: income,
+                },
+                {
+                    name: "Expenses",
+                    amount: expense,
+                },
+            ]
 
-    }, [transactions])
+        }, [
+            transactions,
+        ])
 
 
     // =====================================================
     // CASH FLOW TIMELINE
     // =====================================================
 
-    const cashFlowData = useMemo(() => {
+    const cashFlowData =
+        useMemo(() => {
 
-        const grouped: Record<
-            string,
-            {
-                income: number
-                expense: number
-            }
-        > = {}
-
-        transactions.forEach(
-            (transaction) => {
-
-                const date =
-                    transaction.date
-
-                if (!grouped[date]) {
-
-                    grouped[date] = {
-                        income: 0,
-                        expense: 0,
+            const grouped:
+                Record<
+                    string,
+                    {
+                        income: number
+                        expense: number
                     }
+                > = {}
+
+            transactions.forEach(
+                transaction => {
+
+                    const date =
+                        transaction.date
+
+                    if (
+                        !grouped[date]
+                    ) {
+
+                        grouped[date] = {
+                            income: 0,
+                            expense: 0,
+                        }
+
+                    }
+
+                    if (
+                        transaction.type ===
+                        "INCOME"
+                    ) {
+
+                        grouped[
+                            date
+                            ].income +=
+                            transaction.amount
+
+                    } else {
+
+                        grouped[
+                            date
+                            ].expense +=
+                            transaction.amount
+
+                    }
+
                 }
-
-                if (
-                    transaction.type ===
-                    "INCOME"
-                ) {
-
-                    grouped[date].income +=
-                        transaction.amount
-
-                } else {
-
-                    grouped[date].expense +=
-                        transaction.amount
-                }
-            }
-        )
-
-        return Object.entries(grouped)
-            .sort(
-                (
-                    a,
-                    b
-                ) =>
-                    a[0].localeCompare(
-                        b[0]
-                    )
             )
-            .map(
-                ([
-                    date,
-                    values,
-                ]) => ({
 
-                    date,
+            return Object.entries(
+                grouped
+            )
+                .sort(
+                    (
+                        a,
+                        b
+                    ) =>
+                        a[0].localeCompare(
+                            b[0]
+                        )
+                )
+                .map(
+                    (
+                        [
+                            date,
+                            values,
+                        ]
+                    ) => ({
 
-                    income:
+                        date,
+
+                        income:
                         values.income,
 
-                    expense:
+                        expense:
                         values.expense,
 
-                    net:
-                        values.income -
-                        values.expense,
+                        net:
+                            values.income -
+                            values.expense,
 
-                })
-            )
+                    })
+                )
 
-    }, [transactions])
+        }, [
+            transactions,
+        ])
 
 
     // =====================================================
@@ -311,11 +482,19 @@ function Dashboard() {
     ) => {
 
         const value =
-            (category ?? "").toLowerCase()
+            (
+                category ??
+                ""
+            ).toLowerCase()
+
 
         if (
-            value.includes("food") ||
-            value.includes("restaurant")
+            value.includes(
+                "food"
+            ) ||
+            value.includes(
+                "restaurant"
+            )
         ) {
 
             return (
@@ -323,12 +502,20 @@ function Dashboard() {
                     size={18}
                 />
             )
+
         }
 
+
         if (
-            value.includes("travel") ||
-            value.includes("transport") ||
-            value.includes("bus")
+            value.includes(
+                "travel"
+            ) ||
+            value.includes(
+                "transport"
+            ) ||
+            value.includes(
+                "bus"
+            )
         ) {
 
             return (
@@ -336,10 +523,14 @@ function Dashboard() {
                     size={18}
                 />
             )
+
         }
 
+
         if (
-            value.includes("shopping")
+            value.includes(
+                "shopping"
+            )
         ) {
 
             return (
@@ -347,11 +538,17 @@ function Dashboard() {
                     size={18}
                 />
             )
+
         }
 
+
         if (
-            value.includes("salary") ||
-            value.includes("income")
+            value.includes(
+                "salary"
+            ) ||
+            value.includes(
+                "income"
+            )
         ) {
 
             return (
@@ -359,10 +556,14 @@ function Dashboard() {
                     size={18}
                 />
             )
+
         }
 
+
         if (
-            value.includes("bill")
+            value.includes(
+                "bill"
+            )
         ) {
 
             return (
@@ -370,13 +571,16 @@ function Dashboard() {
                     size={18}
                 />
             )
+
         }
+
 
         return (
             <Wallet
                 size={18}
             />
         )
+
     }
 
 
@@ -398,6 +602,28 @@ function Dashboard() {
                 }
                 : undefined
         )
+
+    }
+
+
+    // =====================================================
+    // FORMAT DATE
+    // =====================================================
+
+    const formatDate = (
+        date: string
+    ) => {
+
+        return new Date(
+            `${date}T00:00:00`
+        ).toLocaleDateString(
+            "en-IN",
+            {
+                day: "numeric",
+                month: "short",
+            }
+        )
+
     }
 
 
@@ -405,19 +631,22 @@ function Dashboard() {
     // CURRENT DATE
     // =====================================================
 
-    const currentDate = useMemo(() => {
+    const currentDate =
+        useMemo(() => {
 
-        return new Intl.DateTimeFormat(
-            "en-IN",
-            {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-            }
-        ).format(new Date())
+            return new Intl.DateTimeFormat(
+                "en-IN",
+                {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                }
+            ).format(
+                new Date()
+            )
 
-    }, [])
+        }, [])
 
 
     // =====================================================
@@ -426,7 +655,8 @@ function Dashboard() {
 
     if (
         summaryError ||
-        transactionsError
+        transactionsError ||
+        recurringError
     ) {
 
         return (
@@ -445,15 +675,22 @@ function Dashboard() {
 
                         </div>
 
+
                         <h2 className="mt-5 text-xl font-semibold text-white">
+
                             Unable to load dashboard
+
                         </h2>
 
+
                         <p className="mt-2 text-sm leading-6 text-white/45">
+
                             We couldn't retrieve your financial
                             information. Make sure your Spring
                             Boot backend is running.
+
                         </p>
+
 
                         <Button
                             className="mt-6 rounded-xl bg-white text-black hover:bg-white/90"
@@ -461,7 +698,9 @@ function Dashboard() {
                                 window.location.reload()
                             }
                         >
+
                             Try again
+
                         </Button>
 
                     </div>
@@ -469,7 +708,9 @@ function Dashboard() {
                 </div>
 
             </div>
+
         )
+
     }
 
 
@@ -481,6 +722,7 @@ function Dashboard() {
 
         <div className="min-h-screen bg-[#07080c] text-white">
 
+
             {/* ================================================= */}
             {/* HEADER */}
             {/* ================================================= */}
@@ -491,23 +733,28 @@ function Dashboard() {
 
                     <div>
 
-                        <div className="flex items-center gap-2">
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/35">
 
-                            <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/35">
-                                {currentDate}
-                            </p>
+                            {currentDate}
 
-                        </div>
+                        </p>
+
 
                         <h1 className="mt-2 text-2xl font-bold tracking-[-0.02em] text-white sm:text-3xl">
+
                             Good evening 👋
+
                         </h1>
 
+
                         <p className="mt-1 text-sm text-white/40">
+
                             Here's your financial overview.
+
                         </p>
 
                     </div>
+
 
                     <Button className="group w-fit rounded-xl bg-white px-4 text-black shadow-lg shadow-white/5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/90 hover:shadow-xl">
 
@@ -536,14 +783,11 @@ function Dashboard() {
                 {/* BALANCE HERO */}
                 {/* ================================================= */}
 
-                <Card
-                    className="group relative overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
+                <Card className="group relative overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
 
-                    <div
-                        className="pointer-events-none absolute -right-32 -top-32 h-80 w-80 rounded-full bg-violet-500/10 blur-3xl transition duration-700 group-hover:bg-violet-500/15"/>
+                    <div className="pointer-events-none absolute -right-32 -top-32 h-80 w-80 rounded-full bg-violet-500/10 blur-3xl transition duration-700 group-hover:bg-violet-500/15" />
 
-                    <div
-                        className="pointer-events-none absolute -bottom-40 -left-20 h-72 w-72 rounded-full bg-emerald-500/5 blur-3xl"/>
+                    <div className="pointer-events-none absolute -bottom-40 -left-20 h-72 w-72 rounded-full bg-emerald-500/5 blur-3xl" />
 
 
                     <div className="relative p-7 sm:p-8">
@@ -553,8 +797,11 @@ function Dashboard() {
                             <div>
 
                                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">
+
                                     Total balance
+
                                 </p>
+
 
                                 <h2 className="mt-4 text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl">
 
@@ -567,10 +814,10 @@ function Dashboard() {
 
                                 </h2>
 
+
                                 <div className="mt-4 flex flex-wrap items-center gap-2">
 
-                                    <span
-                                        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/10 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
+                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/10 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
 
                                         <TrendingUp
                                             size={13}
@@ -580,8 +827,11 @@ function Dashboard() {
 
                                     </span>
 
+
                                     <span className="text-xs text-white/30">
+
                                         Current available balance
+
                                     </span>
 
                                 </div>
@@ -589,8 +839,7 @@ function Dashboard() {
                             </div>
 
 
-                            <div
-                                className="rounded-2xl border border-white/10 bg-white/[0.05] p-3.5 text-white shadow-xl shadow-black/10">
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-3.5 text-white shadow-xl shadow-black/10">
 
                                 <Wallet
                                     size={22}
@@ -601,7 +850,7 @@ function Dashboard() {
                         </div>
 
 
-                        {/* Mini chart */}
+                        {/* MINI CHART */}
 
                         <div className="mt-10 h-28 sm:h-32">
 
@@ -613,7 +862,9 @@ function Dashboard() {
                                 >
 
                                     <BarChart
-                                        data={cashFlowData}
+                                        data={
+                                            cashFlowData
+                                        }
                                         barGap={3}
                                     >
 
@@ -631,10 +882,14 @@ function Dashboard() {
                                                 fill: "rgba(255,255,255,0.03)",
                                             }}
                                             contentStyle={{
-                                                background: "#111318",
-                                                border: "1px solid rgba(255,255,255,0.1)",
-                                                borderRadius: "14px",
-                                                color: "white",
+                                                background:
+                                                    "#111318",
+                                                border:
+                                                    "1px solid rgba(255,255,255,0.1)",
+                                                borderRadius:
+                                                    "14px",
+                                                color:
+                                                    "white",
                                             }}
                                         />
 
@@ -668,9 +923,10 @@ function Dashboard() {
 
                             ) : (
 
-                                <div
-                                    className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
+                                <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
+
                                     No cash-flow data yet.
+
                                 </div>
 
                             )}
@@ -691,17 +947,18 @@ function Dashboard() {
 
                     {/* INCOME */}
 
-                    <Card
-                        className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
+                    <Card className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
 
                         <div className="flex items-center justify-between">
 
                             <p className="text-sm font-medium text-white/45">
+
                                 Income
+
                             </p>
 
-                            <div
-                                className="rounded-xl border border-emerald-400/10 bg-emerald-400/10 p-2.5 text-emerald-400">
+
+                            <div className="rounded-xl border border-emerald-400/10 bg-emerald-400/10 p-2.5 text-emerald-400">
 
                                 <ArrowUpRight
                                     size={17}
@@ -731,7 +988,9 @@ function Dashboard() {
                             />
 
                             <p className="text-xs text-emerald-400">
+
                                 Total income
+
                             </p>
 
                         </div>
@@ -741,14 +1000,16 @@ function Dashboard() {
 
                     {/* EXPENSE */}
 
-                    <Card
-                        className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
+                    <Card className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
 
                         <div className="flex items-center justify-between">
 
                             <p className="text-sm font-medium text-white/45">
+
                                 Expenses
+
                             </p>
+
 
                             <div className="rounded-xl border border-rose-400/10 bg-rose-400/10 p-2.5 text-rose-400">
 
@@ -780,7 +1041,9 @@ function Dashboard() {
                             />
 
                             <p className="text-xs text-rose-400">
+
                                 Total expenses
+
                             </p>
 
                         </div>
@@ -790,17 +1053,18 @@ function Dashboard() {
 
                     {/* SAVINGS */}
 
-                    <Card
-                        className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
+                    <Card className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
 
                         <div className="flex items-center justify-between">
 
                             <p className="text-sm font-medium text-white/45">
+
                                 Savings rate
+
                             </p>
 
-                            <div
-                                className="rounded-xl border border-violet-400/10 bg-violet-400/10 p-2.5 text-violet-400">
+
+                            <div className="rounded-xl border border-violet-400/10 bg-violet-400/10 p-2.5 text-violet-400">
 
                                 <Sparkles
                                     size={17}
@@ -815,7 +1079,9 @@ function Dashboard() {
 
                             {summaryLoading
                                 ? "Loading..."
-                                : `${savingsRate.toFixed(1)}%`}
+                                : `${savingsRate.toFixed(
+                                    1
+                                )}%`}
 
                         </p>
 
@@ -838,18 +1104,424 @@ function Dashboard() {
 
 
                 {/* ================================================= */}
+                {/* RECENT + UPCOMING */}
+                {/* ================================================= */}
+
+                <div className="grid gap-6 xl:grid-cols-2">
+
+
+                    {/* RECENT TRANSACTIONS */}
+
+                    <Card className="overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
+
+                        <div className="flex flex-col gap-4 border-b border-white/[0.07] p-6 sm:flex-row sm:items-center sm:justify-between">
+
+                            <div>
+
+                                <div className="flex items-center gap-2">
+
+                                    <h3 className="font-semibold text-white">
+
+                                        Recent transactions
+
+                                    </h3>
+
+
+                                    <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/30">
+
+                                        {transactions.length}
+
+                                    </span>
+
+                                </div>
+
+
+                                <p className="mt-1 text-sm text-white/35">
+
+                                    Your latest financial activity
+
+                                </p>
+
+                            </div>
+
+
+                            <button
+                                className="w-fit text-sm font-medium text-white/40 transition hover:text-white"
+                                onClick={() =>
+                                    window.location.href =
+                                        "/transactions"
+                                }
+                            >
+
+                                View all →
+
+                            </button>
+
+                        </div>
+
+
+                        <div className="divide-y divide-white/[0.05]">
+
+                            {transactionsLoading ? (
+
+                                <>
+
+                                    {Array.from({
+                                        length: 3,
+                                    }).map(
+                                        (
+                                            _,
+                                            index
+                                        ) => (
+
+                                            <div
+                                                key={
+                                                    index
+                                                }
+                                                className="flex h-20 animate-pulse items-center gap-4 px-6"
+                                            >
+
+                                                <div className="h-10 w-10 rounded-xl bg-white/5" />
+
+                                                <div className="space-y-2">
+
+                                                    <div className="h-3 w-32 rounded bg-white/5" />
+
+                                                    <div className="h-2 w-24 rounded bg-white/5" />
+
+                                                </div>
+
+                                            </div>
+
+                                        )
+                                    )}
+
+                                </>
+
+                            ) : transactions.length === 0 ? (
+
+                                <div className="px-6 py-14 text-center">
+
+                                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/30">
+
+                                        <Wallet
+                                            size={22}
+                                        />
+
+                                    </div>
+
+
+                                    <p className="mt-4 font-medium text-white">
+
+                                        No transactions yet
+
+                                    </p>
+
+
+                                    <p className="mt-1 text-sm text-white/35">
+
+                                        Add your first transaction to get started.
+
+                                    </p>
+
+
+                                    <Button className="mt-5 rounded-xl bg-white text-black hover:bg-white/90">
+
+                                        <Plus
+                                            size={16}
+                                        />
+
+                                        Add transaction
+
+                                    </Button>
+
+                                </div>
+
+                            ) : (
+
+                                transactions
+                                    .slice(
+                                        0,
+                                        5
+                                    )
+                                    .map(
+                                        transaction => (
+
+                                            <div
+                                                key={
+                                                    transaction.id
+                                                }
+                                                className="group flex items-center justify-between gap-4 px-6 py-4 transition-colors duration-200 hover:bg-white/[0.025]"
+                                            >
+
+                                                {/* LEFT */}
+
+                                                <div className="flex min-w-0 items-center gap-4">
+
+                                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-white/55 transition group-hover:border-white/15 group-hover:text-white">
+
+                                                        {getCategoryIcon(
+                                                            transaction.category
+                                                        )}
+
+                                                    </div>
+
+
+                                                    <div className="min-w-0">
+
+                                                        <p className="truncate text-sm font-semibold text-white">
+
+                                                            {transaction.title ||
+                                                                "Untitled transaction"}
+
+                                                        </p>
+
+
+                                                        <p className="mt-1 truncate text-xs text-white/30">
+
+                                                            {transaction.category ||
+                                                                "Other"}
+
+                                                            {" · "}
+
+                                                            {transaction.date}
+
+                                                        </p>
+
+                                                    </div>
+
+                                                </div>
+
+
+                                                {/* RIGHT */}
+
+                                                <div className="flex shrink-0 items-center gap-4">
+
+                                                    <div className="text-right">
+
+                                                        <p
+                                                            className={
+                                                                transaction.type ===
+                                                                "INCOME"
+                                                                    ? "text-sm font-bold text-emerald-400"
+                                                                    : "text-sm font-bold text-white"
+                                                            }
+                                                        >
+
+                                                            {transaction.type ===
+                                                            "INCOME"
+                                                                ? "+"
+                                                                : "-"}
+
+                                                            ₹
+                                                            {formatMoney(
+                                                                transaction.amount
+                                                            )}
+
+                                                        </p>
+
+
+                                                        <p className="mt-1 text-[10px] uppercase tracking-wider text-white/20">
+
+                                                            {
+                                                                transaction.type
+                                                            }
+
+                                                        </p>
+
+                                                    </div>
+
+
+                                                    <button className="hidden rounded-lg p-2 text-white/20 opacity-0 transition hover:bg-white/5 hover:text-white sm:block sm:group-hover:opacity-100">
+
+                                                        <MoreHorizontal
+                                                            size={18}
+                                                        />
+
+                                                    </button>
+
+                                                </div>
+
+                                            </div>
+
+                                        )
+                                    )
+
+                            )}
+
+                        </div>
+
+                    </Card>
+
+
+                    {/* UPCOMING PAYMENTS */}
+
+                    <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
+
+                        <div>
+
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-400">
+
+                                Automation
+
+                            </p>
+
+
+                            <h2 className="mt-1 text-lg font-bold">
+
+                                Upcoming payments
+
+                            </h2>
+
+                        </div>
+
+
+                        <div className="mt-5 space-y-3">
+
+                            {recurringLoading ? (
+
+                                Array.from({
+                                    length: 3,
+                                }).map(
+                                    (
+                                        _,
+                                        index
+                                    ) => (
+
+                                        <div
+                                            key={
+                                                index
+                                            }
+                                            className="flex animate-pulse items-center gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.015] p-4"
+                                        >
+
+                                            <div className="h-10 w-10 rounded-xl bg-white/5" />
+
+                                            <div className="flex-1 space-y-2">
+
+                                                <div className="h-3 w-32 rounded bg-white/5" />
+
+                                                <div className="h-2 w-20 rounded bg-white/5" />
+
+                                            </div>
+
+                                        </div>
+
+                                    )
+                                )
+
+                            ) : upcomingRecurring.length === 0 ? (
+
+                                <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
+
+                                    <Repeat2
+                                        size={22}
+                                        className="mx-auto text-white/20"
+                                    />
+
+                                    <p className="mt-3 text-sm text-white/30">
+
+                                        No upcoming payments
+
+                                    </p>
+
+                                </div>
+
+                            ) : (
+
+                                upcomingRecurring.map(
+                                    item => (
+
+                                        <div
+                                            key={
+                                                item.id
+                                            }
+                                            className="flex items-center gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.015] p-4"
+                                        >
+
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-400/10">
+
+                                                <Repeat2
+                                                    size={16}
+                                                    className="text-violet-300"
+                                                />
+
+                                            </div>
+
+
+                                            <div className="min-w-0 flex-1">
+
+                                                <p className="truncate text-sm font-medium">
+
+                                                    {
+                                                        item.title
+                                                    }
+
+                                                </p>
+
+
+                                                <p className="mt-1 text-xs text-white/25">
+
+                                                    {
+                                                        item.category.name
+                                                    }
+
+                                                    {" · "}
+
+                                                    {formatDate(
+                                                        item.nextDate
+                                                    )}
+
+                                                </p>
+
+                                            </div>
+
+
+                                            <p
+                                                className={`shrink-0 text-sm font-bold ${
+                                                    item.type ===
+                                                    "INCOME"
+                                                        ? "text-emerald-400"
+                                                        : "text-white"
+                                                }`}
+                                            >
+
+                                                {item.type ===
+                                                "INCOME"
+                                                    ? "+"
+                                                    : "-"}
+
+                                                ₹
+                                                {formatMoney(
+                                                    item.amount
+                                                )}
+
+                                            </p>
+
+                                        </div>
+
+                                    )
+                                )
+
+                            )}
+
+                        </div>
+
+                    </Card>
+
+                </div>
+
+
+                {/* ================================================= */}
                 {/* ANALYTICS */}
                 {/* ================================================= */}
 
                 <div className="grid gap-6 xl:grid-cols-3">
 
 
-                    {/* ================================================= */}
                     {/* CASH FLOW */}
-                    {/* ================================================= */}
 
-                    <Card
-                        className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl xl:col-span-2">
+                    <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl xl:col-span-2">
 
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
@@ -858,25 +1530,34 @@ function Dashboard() {
                                 <div className="flex items-center gap-2">
 
                                     <h3 className="font-semibold text-white">
+
                                         Cash flow
+
                                     </h3>
 
+
                                     <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/35">
+
                                         LIVE
+
                                     </span>
 
                                 </div>
 
+
                                 <p className="mt-1 text-sm text-white/35">
+
                                     Income vs expenses over time
+
                                 </p>
 
                             </div>
 
 
-                            <button
-                                className="w-fit rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-medium text-white/50 transition hover:border-white/20 hover:text-white">
+                            <button className="w-fit rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-medium text-white/50 transition hover:border-white/20 hover:text-white">
+
                                 August 2026
+
                             </button>
 
                         </div>
@@ -892,7 +1573,9 @@ function Dashboard() {
                                 >
 
                                     <AreaChart
-                                        data={cashFlowData}
+                                        data={
+                                            cashFlowData
+                                        }
                                         margin={{
                                             top: 5,
                                             right: 5,
@@ -903,7 +1586,9 @@ function Dashboard() {
 
                                         <CartesianGrid
                                             stroke="rgba(255,255,255,0.06)"
-                                            vertical={false}
+                                            vertical={
+                                                false
+                                            }
                                         />
 
                                         <XAxis
@@ -912,15 +1597,20 @@ function Dashboard() {
                                                 fill: "#71717a",
                                                 fontSize: 11,
                                             }}
-                                            tickFormatter={(
-                                                value
-                                            ) =>
-                                                String(
-                                                    value
-                                                ).slice(5)
+                                            tickFormatter={
+                                                value =>
+                                                    String(
+                                                        value
+                                                    ).slice(
+                                                        5
+                                                    )
                                             }
-                                            axisLine={false}
-                                            tickLine={false}
+                                            axisLine={
+                                                false
+                                            }
+                                            tickLine={
+                                                false
+                                            }
                                         />
 
                                         <YAxis
@@ -928,13 +1618,16 @@ function Dashboard() {
                                                 fill: "#71717a",
                                                 fontSize: 11,
                                             }}
-                                            tickFormatter={(
-                                                value
-                                            ) =>
-                                                `₹${value}`
+                                            tickFormatter={
+                                                value =>
+                                                    `₹${value}`
                                             }
-                                            axisLine={false}
-                                            tickLine={false}
+                                            axisLine={
+                                                false
+                                            }
+                                            tickLine={
+                                                false
+                                            }
                                         />
 
                                         <Tooltip
@@ -942,28 +1635,27 @@ function Dashboard() {
                                                 fill: "rgba(255,255,255,0.025)",
                                             }}
                                             contentStyle={{
-                                                background: "#111318",
-                                                border: "1px solid rgba(255,255,255,0.1)",
-                                                borderRadius: "14px",
+                                                background:
+                                                    "#111318",
+                                                border:
+                                                    "1px solid rgba(255,255,255,0.1)",
+                                                borderRadius:
+                                                    "14px",
                                             }}
                                             labelStyle={{
-                                                color: "#a1a1aa",
-                                                marginBottom: "6px",
+                                                color:
+                                                    "#a1a1aa",
+                                                marginBottom:
+                                                    "6px",
                                             }}
-                                            formatter={(
-                                                value,
-                                                name
-                                            ) => [
-                                                `₹${Number(
-                                                    value
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}`,
-                                                name ===
-                                                "income"
-                                                    ? "Income"
-                                                    : "Expenses",
-                                            ]}
+                                            formatter={
+                                                value =>
+                                                    `₹${Number(
+                                                        value
+                                                    ).toLocaleString(
+                                                        "en-IN"
+                                                    )}`
+                                            }
                                         />
 
                                         <Area
@@ -971,9 +1663,13 @@ function Dashboard() {
                                             dataKey="income"
                                             name="Income"
                                             fill="#34d399"
-                                            fillOpacity={0.15}
+                                            fillOpacity={
+                                                0.15
+                                            }
                                             stroke="#34d399"
-                                            strokeWidth={2}
+                                            strokeWidth={
+                                                2
+                                            }
                                         />
 
                                         <Area
@@ -981,9 +1677,13 @@ function Dashboard() {
                                             dataKey="expense"
                                             name="Expenses"
                                             fill="#fb7185"
-                                            fillOpacity={0.15}
+                                            fillOpacity={
+                                                0.15
+                                            }
                                             stroke="#fb7185"
-                                            strokeWidth={2}
+                                            strokeWidth={
+                                                2
+                                            }
                                         />
 
                                     </AreaChart>
@@ -992,9 +1692,10 @@ function Dashboard() {
 
                             ) : (
 
-                                <div
-                                    className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
+                                <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
+
                                     No transaction data available.
+
                                 </div>
 
                             )}
@@ -1006,7 +1707,7 @@ function Dashboard() {
 
                             <div className="flex items-center gap-2 text-white/40">
 
-                                <span className="h-2 w-2 rounded-full bg-emerald-400"/>
+                                <span className="h-2 w-2 rounded-full bg-emerald-400" />
 
                                 Income
 
@@ -1015,7 +1716,7 @@ function Dashboard() {
 
                             <div className="flex items-center gap-2 text-white/40">
 
-                                <span className="h-2 w-2 rounded-full bg-rose-400"/>
+                                <span className="h-2 w-2 rounded-full bg-rose-400" />
 
                                 Expenses
 
@@ -1026,20 +1727,23 @@ function Dashboard() {
                     </Card>
 
 
-                    {/* ================================================= */}
                     {/* SPENDING */}
-                    {/* ================================================= */}
 
                     <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
 
                         <div>
 
                             <h3 className="font-semibold text-white">
+
                                 Spending breakdown
+
                             </h3>
 
+
                             <p className="mt-1 text-sm text-white/35">
+
                                 Where your money goes
+
                             </p>
 
                         </div>
@@ -1049,21 +1753,27 @@ function Dashboard() {
 
                             {categoryData.length === 0 ? (
 
-                                <div
-                                    className="flex h-full min-h-[280px] flex-col items-center justify-center text-center">
+                                <div className="flex h-full min-h-[280px] flex-col items-center justify-center text-center">
 
-                                    <div
-                                        className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-2xl">
+                                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-2xl">
+
                                         📊
+
                                     </div>
 
+
                                     <h3 className="mt-4 text-sm font-semibold text-white">
+
                                         No spending data yet
+
                                     </h3>
 
+
                                     <p className="mt-1 max-w-xs text-xs text-white/30">
+
                                         Add an expense to see your
                                         spending breakdown.
+
                                     </p>
 
                                 </div>
@@ -1078,14 +1788,22 @@ function Dashboard() {
                                     <PieChart>
 
                                         <Pie
-                                            data={categoryData}
+                                            data={
+                                                categoryData
+                                            }
                                             dataKey="value"
                                             nameKey="name"
                                             cx="50%"
                                             cy="50%"
-                                            innerRadius={58}
-                                            outerRadius={82}
-                                            paddingAngle={4}
+                                            innerRadius={
+                                                58
+                                            }
+                                            outerRadius={
+                                                82
+                                            }
+                                            paddingAngle={
+                                                4
+                                            }
                                             stroke="none"
                                         >
 
@@ -1105,7 +1823,8 @@ function Dashboard() {
                                                                 "#fb7185",
                                                                 "#fbbf24",
                                                             ][
-                                                            index % 5
+                                                            index %
+                                                            5
                                                                 ]
                                                         }
                                                     />
@@ -1118,18 +1837,20 @@ function Dashboard() {
 
                                         <Tooltip
                                             contentStyle={{
-                                                background: "#111318",
-                                                border: "1px solid rgba(255,255,255,0.1)",
-                                                borderRadius: "14px",
+                                                background:
+                                                    "#111318",
+                                                border:
+                                                    "1px solid rgba(255,255,255,0.1)",
+                                                borderRadius:
+                                                    "14px",
                                             }}
-                                            formatter={(
-                                                value
-                                            ) =>
-                                                `₹${Number(
-                                                    value
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}`
+                                            formatter={
+                                                value =>
+                                                    `₹${Number(
+                                                        value
+                                                    ).toLocaleString(
+                                                        "en-IN"
+                                                    )}`
                                             }
                                         />
 
@@ -1147,13 +1868,20 @@ function Dashboard() {
                                     <div className="text-center">
 
                                         <p className="text-lg font-bold text-white">
-                                            ₹{formatMoney(
-                                            summary?.totalExpense ?? 0
-                                        )}
+
+                                            ₹
+                                            {formatMoney(
+                                                summary?.totalExpense ??
+                                                0
+                                            )}
+
                                         </p>
 
+
                                         <p className="text-[10px] uppercase tracking-wider text-white/30">
+
                                             spent
+
                                         </p>
 
                                     </div>
@@ -1168,7 +1896,10 @@ function Dashboard() {
                         <div className="mt-4 space-y-3">
 
                             {categoryData
-                                .slice(0, 4)
+                                .slice(
+                                    0,
+                                    4
+                                )
                                 .map(
                                     (
                                         category,
@@ -1177,7 +1908,8 @@ function Dashboard() {
 
                                         const percentage =
                                             summary &&
-                                            summary.totalExpense > 0
+                                            summary.totalExpense >
+                                            0
                                                 ? (
                                                     (
                                                         category.value /
@@ -1187,10 +1919,30 @@ function Dashboard() {
                                                 )
                                                 : 0
 
+                                        const categoryColors =
+                                            [
+                                                "#a78bfa",
+                                                "#34d399",
+                                                "#60a5fa",
+                                                "#fb7185",
+                                                "#fbbf24",
+                                            ]
+
+                                        const categoryBackgrounds =
+                                            [
+                                                "rgba(167,139,250,0.1)",
+                                                "rgba(52,211,153,0.1)",
+                                                "rgba(96,165,250,0.1)",
+                                                "rgba(251,113,133,0.1)",
+                                                "rgba(251,191,36,0.1)",
+                                            ]
+
                                         return (
 
                                             <div
-                                                key={category.name}
+                                                key={
+                                                    category.name
+                                                }
                                                 className="flex items-center justify-between"
                                             >
 
@@ -1200,14 +1952,9 @@ function Dashboard() {
                                                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
                                                         style={{
                                                             background:
-                                                                [
-                                                                    "rgba(167,139,250,0.1)",
-                                                                    "rgba(52,211,153,0.1)",
-                                                                    "rgba(96,165,250,0.1)",
-                                                                    "rgba(251,113,133,0.1)",
-                                                                    "rgba(251,191,36,0.1)",
-                                                                ][
-                                                                index % 5
+                                                                categoryBackgrounds[
+                                                                index %
+                                                                5
                                                                     ],
                                                         }}
                                                     >
@@ -1215,14 +1962,9 @@ function Dashboard() {
                                                         <span
                                                             style={{
                                                                 color:
-                                                                    [
-                                                                        "#a78bfa",
-                                                                        "#34d399",
-                                                                        "#60a5fa",
-                                                                        "#fb7185",
-                                                                        "#fbbf24",
-                                                                    ][
-                                                                    index % 5
+                                                                    categoryColors[
+                                                                    index %
+                                                                    5
                                                                         ],
                                                             }}
                                                         >
@@ -1239,14 +1981,21 @@ function Dashboard() {
                                                     <div className="min-w-0">
 
                                                         <p className="truncate text-sm font-medium text-white/75">
-                                                            {category.name}
+
+                                                            {
+                                                                category.name
+                                                            }
+
                                                         </p>
 
+
                                                         <p className="text-[11px] text-white/30">
+
                                                             {percentage.toFixed(
                                                                 0
                                                             )}
                                                             %
+
                                                         </p>
 
                                                     </div>
@@ -1255,14 +2004,18 @@ function Dashboard() {
 
 
                                                 <p className="shrink-0 text-sm font-semibold text-white">
-                                                    ₹{formatMoney(
-                                                    category.value
-                                                )}
+
+                                                    ₹
+                                                    {formatMoney(
+                                                        category.value
+                                                    )}
+
                                                 </p>
 
                                             </div>
 
                                         )
+
                                     }
                                 )}
 
@@ -1282,11 +2035,16 @@ function Dashboard() {
                     <div>
 
                         <h3 className="font-semibold text-white">
+
                             Income vs expenses
+
                         </h3>
 
+
                         <p className="mt-1 text-sm text-white/35">
+
                             Total money coming in compared with money going out
+
                         </p>
 
                     </div>
@@ -1295,7 +2053,7 @@ function Dashboard() {
                     <div className="mt-8 h-[280px]">
 
                         {incomeExpenseData.some(
-                            (item) =>
+                            item =>
                                 item.amount > 0
                         ) ? (
 
@@ -1305,7 +2063,9 @@ function Dashboard() {
                             >
 
                                 <BarChart
-                                    data={incomeExpenseData}
+                                    data={
+                                        incomeExpenseData
+                                    }
                                     margin={{
                                         top: 5,
                                         right: 5,
@@ -1316,7 +2076,9 @@ function Dashboard() {
 
                                     <CartesianGrid
                                         stroke="rgba(255,255,255,0.06)"
-                                        vertical={false}
+                                        vertical={
+                                            false
+                                        }
                                     />
 
                                     <XAxis
@@ -1325,8 +2087,12 @@ function Dashboard() {
                                             fill: "#71717a",
                                             fontSize: 11,
                                         }}
-                                        axisLine={false}
-                                        tickLine={false}
+                                        axisLine={
+                                            false
+                                        }
+                                        tickLine={
+                                            false
+                                        }
                                     />
 
                                     <YAxis
@@ -1334,13 +2100,16 @@ function Dashboard() {
                                             fill: "#71717a",
                                             fontSize: 11,
                                         }}
-                                        tickFormatter={(
-                                            value
-                                        ) =>
-                                            `₹${value}`
+                                        tickFormatter={
+                                            value =>
+                                                `₹${value}`
                                         }
-                                        axisLine={false}
-                                        tickLine={false}
+                                        axisLine={
+                                            false
+                                        }
+                                        tickLine={
+                                            false
+                                        }
                                     />
 
                                     <Tooltip
@@ -1348,18 +2117,20 @@ function Dashboard() {
                                             fill: "rgba(255,255,255,0.025)",
                                         }}
                                         contentStyle={{
-                                            background: "#111318",
-                                            border: "1px solid rgba(255,255,255,0.1)",
-                                            borderRadius: "14px",
+                                            background:
+                                                "#111318",
+                                            border:
+                                                "1px solid rgba(255,255,255,0.1)",
+                                            borderRadius:
+                                                "14px",
                                         }}
-                                        formatter={(
-                                            value
-                                        ) =>
-                                            `₹${Number(
-                                                value
-                                            ).toLocaleString(
-                                                "en-IN"
-                                            )}`
+                                        formatter={
+                                            value =>
+                                                `₹${Number(
+                                                    value
+                                                ).toLocaleString(
+                                                    "en-IN"
+                                                )}`
                                         }
                                     />
 
@@ -1381,9 +2152,10 @@ function Dashboard() {
 
                         ) : (
 
-                            <div
-                                className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
+                            <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
+
                                 No income or expense data yet.
+
                             </div>
 
                         )}
@@ -1392,25 +2164,35 @@ function Dashboard() {
 
                 </Card>
 
+
+                {/* ================================================= */}
+                {/* SMART INSIGHTS */}
+                {/* ================================================= */}
+
                 <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
 
                     <div className="flex items-center gap-3">
 
-                        <div
-                            className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
 
                             ✨
 
                         </div>
 
+
                         <div>
 
                             <h2 className="text-sm font-semibold text-white">
+
                                 Smart Insights
+
                             </h2>
 
+
                             <p className="mt-0.5 text-xs text-white/30">
+
                                 Based on your transaction activity
+
                             </p>
 
                         </div>
@@ -1421,14 +2203,14 @@ function Dashboard() {
                     <div className="mt-6 grid gap-3 md:grid-cols-3">
 
 
-                        {/* ================================================= */}
                         {/* TOP CATEGORY */}
-                        {/* ================================================= */}
 
                         <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
 
                             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">
+
                                 Biggest spending
+
                             </p>
 
 
@@ -1438,9 +2220,12 @@ function Dashboard() {
 
                                     <p className="mt-3 text-lg font-bold text-white">
 
-                                        {insights.topCategory}
+                                        {
+                                            insights.topCategory
+                                        }
 
                                     </p>
+
 
                                     <p className="mt-1 text-xs text-white/35">
 
@@ -1449,7 +2234,8 @@ function Dashboard() {
                                             "en-IN"
                                         )}
 
-                                        {" "}spent
+                                        {" "}
+                                        spent
 
                                     </p>
 
@@ -1458,7 +2244,9 @@ function Dashboard() {
                             ) : (
 
                                 <p className="mt-3 text-sm text-white/30">
+
                                     No expense data yet
+
                                 </p>
 
                             )}
@@ -1466,22 +2254,24 @@ function Dashboard() {
                         </div>
 
 
-                        {/* ================================================= */}
                         {/* SAVINGS RATE */}
-                        {/* ================================================= */}
 
                         <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
 
                             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">
+
                                 Savings rate
+
                             </p>
 
 
                             <p className="mt-3 text-lg font-bold text-emerald-400">
 
-                                {insights.savingsRate.toFixed(
-                                    1
-                                )}
+                                {
+                                    insights.savingsRate.toFixed(
+                                        1
+                                    )
+                                }
                                 %
 
                             </p>
@@ -1496,20 +2286,21 @@ function Dashboard() {
                         </div>
 
 
-                        {/* ================================================= */}
                         {/* CASH FLOW */}
-                        {/* ================================================= */}
 
                         <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
 
                             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">
+
                                 Net cash flow
+
                             </p>
 
 
                             <p
                                 className={`mt-3 text-lg font-bold ${
-                                    insights.balance >= 0
+                                    insights.balance >=
+                                    0
                                         ? "text-emerald-400"
                                         : "text-rose-400"
                                 }`}
@@ -1542,6 +2333,11 @@ function Dashboard() {
 
                 </section>
 
+
+                {/* ================================================= */}
+                {/* FINANCIAL HEALTH */}
+                {/* ================================================= */}
+
                 <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
 
                     <div className="flex items-center justify-between">
@@ -1549,27 +2345,36 @@ function Dashboard() {
                         <div>
 
                             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/25">
+
                                 Financial health
+
                             </p>
 
+
                             <h2 className="mt-2 text-xl font-bold text-white">
+
                                 {health.label}
+
                             </h2>
 
                         </div>
 
 
-                        <div
-                            className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/10">
+                        <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/10">
 
                             <div className="text-center">
 
                                 <p className="text-xl font-bold text-white">
+
                                     {health.score}
+
                                 </p>
 
+
                                 <p className="text-[9px] uppercase tracking-wider text-white/25">
+
                                     score
+
                                 </p>
 
                             </div>
@@ -1596,13 +2401,13 @@ function Dashboard() {
 
                         <div className="mt-2 flex justify-between text-[10px] text-white/20">
 
-            <span>
-                Needs attention
-            </span>
+                            <span>
+                                Needs attention
+                            </span>
 
                             <span>
-                Excellent
-            </span>
+                                Excellent
+                            </span>
 
                         </div>
 
@@ -1612,250 +2417,14 @@ function Dashboard() {
 
 
                 {/* ================================================= */}
-                {/* RECENT TRANSACTIONS */}
-                {/* ================================================= */}
-
-                <Card className="overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
-
-                    <div
-                        className="flex flex-col gap-4 border-b border-white/[0.07] p-6 sm:flex-row sm:items-center sm:justify-between">
-
-                        <div>
-
-                            <div className="flex items-center gap-2">
-
-                                <h3 className="font-semibold text-white">
-                                    Recent transactions
-                                </h3>
-
-                                <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/30">
-                                    {transactions.length}
-                                </span>
-
-                            </div>
-
-                            <p className="mt-1 text-sm text-white/35">
-                                Your latest financial activity
-                            </p>
-
-                        </div>
-
-
-                        <button className="w-fit text-sm font-medium text-white/40 transition hover:text-white">
-                            View all →
-                        </button>
-
-                    </div>
-
-
-                    <div className="divide-y divide-white/[0.05]">
-
-                        {transactionsLoading ? (
-
-                            <>
-
-                                <div className="flex h-20 animate-pulse items-center gap-4 px-6">
-
-                                    <div className="h-10 w-10 rounded-xl bg-white/5"/>
-
-                                    <div className="space-y-2">
-
-                                        <div className="h-3 w-32 rounded bg-white/5"/>
-
-                                        <div className="h-2 w-24 rounded bg-white/5"/>
-
-                                    </div>
-
-                                </div>
-
-
-                                <div className="flex h-20 animate-pulse items-center gap-4 px-6">
-
-                                    <div className="h-10 w-10 rounded-xl bg-white/5"/>
-
-                                    <div className="space-y-2">
-
-                                        <div className="h-3 w-32 rounded bg-white/5"/>
-
-                                        <div className="h-2 w-24 rounded bg-white/5"/>
-
-                                    </div>
-
-                                </div>
-
-
-                                <div className="flex h-20 animate-pulse items-center gap-4 px-6">
-
-                                    <div className="h-10 w-10 rounded-xl bg-white/5"/>
-
-                                    <div className="space-y-2">
-
-                                        <div className="h-3 w-32 rounded bg-white/5"/>
-
-                                        <div className="h-2 w-24 rounded bg-white/5"/>
-
-                                    </div>
-
-                                </div>
-
-                            </>
-
-                        ) : transactions.length === 0 ? (
-
-                            <div className="px-6 py-14 text-center">
-
-                                <div
-                                    className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/30">
-
-                                    <Wallet
-                                        size={22}
-                                    />
-
-                                </div>
-
-                                <p className="mt-4 font-medium text-white">
-                                    No transactions yet
-                                </p>
-
-                                <p className="mt-1 text-sm text-white/35">
-                                    Add your first transaction to get started.
-                                </p>
-
-                                <Button className="mt-5 rounded-xl bg-white text-black hover:bg-white/90">
-
-                                    <Plus
-                                        size={16}
-                                    />
-
-                                    Add transaction
-
-                                </Button>
-
-                            </div>
-
-                        ) : (
-
-                            transactions
-                                .slice(0, 5)
-                                .map(
-                                    (
-                                        transaction
-                                    ) => (
-
-                                        <div
-                                            key={transaction.id}
-                                            className="group flex items-center justify-between gap-4 px-6 py-4 transition-colors duration-200 hover:bg-white/[0.025]"
-                                        >
-
-                                            {/* LEFT */}
-
-                                            <div className="flex min-w-0 items-center gap-4">
-
-                                                <div
-                                                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-white/55 transition group-hover:border-white/15 group-hover:text-white">
-
-                                                    {getCategoryIcon(
-                                                        transaction.category ??
-                                                        "Other"
-                                                    )}
-
-                                                </div>
-
-
-                                                <div className="min-w-0">
-
-                                                    <p className="truncate text-sm font-semibold text-white">
-
-                                                        {transaction.title ||
-                                                            "Untitled transaction"}
-
-                                                    </p>
-
-                                                    <p className="mt-1 truncate text-xs text-white/30">
-
-                                                        {transaction.category ??
-                                                            "Other"}
-
-                                                        {" · "}
-
-                                                        {transaction.date}
-
-                                                    </p>
-
-                                                </div>
-
-                                            </div>
-
-
-                                            {/* RIGHT */}
-
-                                            <div className="flex shrink-0 items-center gap-4">
-
-                                                <div className="text-right">
-
-                                                    <p
-                                                        className={
-                                                            transaction.type ===
-                                                            "INCOME"
-                                                                ? "text-sm font-bold text-emerald-400"
-                                                                : "text-sm font-bold text-white"
-                                                        }
-                                                    >
-
-                                                        {transaction.type ===
-                                                        "INCOME"
-                                                            ? "+"
-                                                            : "-"}
-
-                                                        ₹{formatMoney(
-                                                        transaction.amount
-                                                    )}
-
-                                                    </p>
-
-                                                    <p className="mt-1 text-[10px] uppercase tracking-wider text-white/20">
-
-                                                        {transaction.type}
-
-                                                    </p>
-
-                                                </div>
-
-
-                                                <button
-                                                    className="hidden rounded-lg p-2 text-white/20 opacity-0 transition hover:bg-white/5 hover:text-white sm:block sm:group-hover:opacity-100">
-
-                                                    <MoreHorizontal
-                                                        size={18}
-                                                    />
-
-                                                </button>
-
-                                            </div>
-
-                                        </div>
-
-                                    )
-                                )
-
-                        )}
-
-                    </div>
-
-                </Card>
-
-
-                {/* ================================================= */}
                 {/* FOOTER INSIGHT */}
                 {/* ================================================= */}
 
-                <div
-                    className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.018] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.018] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
 
                     <div className="flex items-center gap-3">
 
-                        <div
-                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
 
                             <Sparkles
                                 size={16}
@@ -1863,14 +2432,20 @@ function Dashboard() {
 
                         </div>
 
+
                         <div>
 
                             <p className="text-sm font-medium text-white/70">
+
                                 Financial snapshot
+
                             </p>
 
+
                             <p className="text-xs text-white/30">
+
                                 Keep tracking your spending to improve your financial health.
+
                             </p>
 
                         </div>
@@ -1879,7 +2454,9 @@ function Dashboard() {
 
 
                     <span className="text-xs font-medium text-white/25">
+
                         FINORA
+
                     </span>
 
                 </div>
@@ -1887,7 +2464,9 @@ function Dashboard() {
             </main>
 
         </div>
+
     )
 }
+
 
 export default Dashboard
