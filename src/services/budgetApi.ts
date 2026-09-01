@@ -1,6 +1,5 @@
 import api from "@/lib/axios"
 
-
 // =====================================================
 // TYPES
 // =====================================================
@@ -10,33 +9,21 @@ export interface Category {
     name: string
 }
 
-
 export interface Budget {
     id: number
-
     category: Category
-
     budget: number
-
     spent: number
-
     remaining: number
-
     percentage: number
-
     month: number
-
     year: number
 }
 
-
 export interface BudgetRequest {
     amount: number
-
     categoryId: number
-
     month: number
-
     year: number
 }
 
@@ -66,7 +53,7 @@ export async function getBudgets(
 
 
 // =====================================================
-// GET ONE
+// GET ONE BUDGET
 // =====================================================
 
 export async function getBudget(
