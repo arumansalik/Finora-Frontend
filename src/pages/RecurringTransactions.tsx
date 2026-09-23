@@ -78,7 +78,7 @@ const recurrenceLabel = (
 }
 
 
-export default function Recurring() {
+export default function RecurringTransactions() {
 
     const queryClient =
         useQueryClient()

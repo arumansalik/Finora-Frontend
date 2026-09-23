@@ -1,3 +1,4 @@
+
 import api from "@/lib/axios"
 
 
@@ -50,7 +51,6 @@ export interface RecurringTransactionRequest {
 // =====================================================
 
 export async function getRecurringTransactions():
-
     Promise<RecurringTransaction[]> {
 
     const response =
@@ -81,6 +81,53 @@ export async function createRecurringTransaction(
         )
 
     return response.data
+}
+
+
+// =====================================================
+// UPDATE
+// =====================================================
+
+export async function updateRecurringTransaction(
+    id: number,
+    data: RecurringTransactionRequest
+): Promise<RecurringTransaction> {
+
+    const response =
+        await api.put<
+            RecurringTransaction
+        >(
+            `/recurring-transactions/${id}`,
+            data
+        )
+
+    return response.data
+}
+
+
+// =====================================================
+// UPDATE STATUS — PAUSE / RESUME
+// =====================================================
+
+export async function updateRecurringTransactionStatus(
+    id: number,
+    active: boolean
+): Promise<RecurringTransaction> {
+
+    const response =
+        await api.patch<
+            RecurringTransaction
+        >(
+            `/recurring-transactions/${id}/status`,
+null,
+    {
+        params: {
+            active,
+        },
+    }
+)
+
+return response.data
 }
 
 
