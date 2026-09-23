@@ -4,10 +4,13 @@ import {
 } from "react"
 
 import {
-    useMutation,
     useQuery,
-    useQueryClient,
 } from "@tanstack/react-query"
+
+import {
+    useBudgets,
+    useDeleteBudget,
+} from "@/hooks/useBudget"
 
 import {
     Plus,
@@ -19,8 +22,6 @@ import {
 } from "lucide-react"
 
 import {
-    getBudgets,
-    deleteBudget,
     type Budget,
 } from "@/services/budgetApi"
 
@@ -35,10 +36,6 @@ import { Card } from "@/components/ui/card"
 
 
 export default function Budgets() {
-
-    const queryClient =
-        useQueryClient()
-
 
     // =====================================================
     // CURRENT MONTH
@@ -66,9 +63,7 @@ export default function Budgets() {
         useState(false)
 
     const [editingBudget, setEditingBudget] =
-        useState<Budget | null>(
-            null
-        )
+        useState<Budget | null>(null)
 
 
     // =====================================================
@@ -80,27 +75,10 @@ export default function Budgets() {
         isLoading,
         isError,
         error,
-    } = useQuery({
-
-        queryKey: [
-            "budgets",
-            month,
-            year,
-        ],
-
-        queryFn: () =>
-            getBudgets(
-                month,
-                year
-            ),
-
-        staleTime:
-            30 * 1000,
-
-        refetchOnWindowFocus:
-            false,
-
-    })
+    } = useBudgets(
+        month,
+        year
+    )
 
 
     // =====================================================
@@ -117,7 +95,7 @@ export default function Budgets() {
         ],
 
         queryFn:
-            getCategories,
+        getCategories,
 
         staleTime:
             5 * 60 * 1000,
@@ -126,6 +104,14 @@ export default function Budgets() {
             false,
 
     })
+
+
+    // =====================================================
+    // DELETE MUTATION
+    // =====================================================
+
+    const deleteMutation =
+        useDeleteBudget()
 
 
     // =====================================================
@@ -273,29 +259,6 @@ export default function Budgets() {
             budgets,
             totals.percentage,
         ])
-
-
-    // =====================================================
-    // DELETE
-    // =====================================================
-
-    const deleteMutation =
-        useMutation({
-
-            mutationFn:
-                deleteBudget,
-
-            onSuccess: () => {
-
-                queryClient.invalidateQueries({
-                    queryKey: [
-                        "budgets",
-                    ],
-                })
-
-            },
-
-        })
 
 
     // =====================================================
@@ -671,18 +634,18 @@ export default function Budgets() {
 
                                     <div
                                         className={`h-full rounded-full transition-all duration-700 ${
-    totals.percentage >= 100
-        ? "bg-rose-400"
-        : totals.percentage >= 90
-            ? "bg-amber-400"
-            : "bg-violet-400"
-}`}
+                                            totals.percentage >= 100
+                                                ? "bg-rose-400"
+                                                : totals.percentage >= 90
+                                                    ? "bg-amber-400"
+                                                    : "bg-violet-400"
+                                        }`}
                                         style={{
                                             width:
                                                 `${Math.min(
-    totals.percentage,
-    100
-)}%`,
+                                                    totals.percentage,
+                                                    100
+                                                )}%`,
                                         }}
                                     />
 
@@ -829,10 +792,10 @@ export default function Budgets() {
 
                         <p
                             className={`mt-5 text-2xl font-bold ${
-    totals.remaining >= 0
-        ? "text-emerald-400"
-        : "text-rose-400"
-}`}
+                                totals.remaining >= 0
+                                    ? "text-emerald-400"
+                                    : "text-rose-400"
+                            }`}
                         >
 
                             ₹
@@ -880,9 +843,6 @@ export default function Budgets() {
 
                     <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-
-                        {/* LEFT */}
-
                         <div>
 
                             <h2 className="text-lg font-bold">
@@ -895,8 +855,6 @@ export default function Budgets() {
 
                         </div>
 
-
-                        {/* RIGHT */}
 
                         <Button
                             onClick={openCreate}
@@ -943,7 +901,6 @@ export default function Budgets() {
 
                     ) : budgets.length === 0 ? (
 
-
                         /* EMPTY STATE */
 
                         <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] px-6 py-20 text-center">
@@ -987,7 +944,6 @@ export default function Budgets() {
 
                     ) : (
 
-
                         /* BUDGET CARDS */
 
                         <div className="grid gap-4 lg:grid-cols-2">
@@ -996,7 +952,6 @@ export default function Budgets() {
                                 (
                                     budget
                                 ) => {
-
 
                                     // =================================================
                                     // CATEGORY STATUS
@@ -1164,14 +1119,14 @@ export default function Budgets() {
 
                                                     <div
                                                         className={`flex items-center gap-1 text-xs font-medium ${
-    exceeded
-        ? "text-rose-400"
-        : nearLimit
-            ? "text-amber-400"
-            : budget.percentage >= 70
-                ? "text-amber-400"
-                : "text-emerald-400"
-}`}
+                                                            exceeded
+                                                                ? "text-rose-400"
+                                                                : nearLimit
+                                                                    ? "text-amber-400"
+                                                                    : budget.percentage >= 70
+                                                                        ? "text-amber-400"
+                                                                        : "text-emerald-400"
+                                                        }`}
                                                     >
 
                                                         {exceeded ? (
@@ -1221,14 +1176,14 @@ export default function Budgets() {
 
                                                     <div
                                                         className={`h-full rounded-full transition-all duration-700 ${
-    exceeded
-        ? "bg-rose-400"
-        : nearLimit
-            ? "bg-amber-400"
-            : budget.percentage >= 70
-                ? "bg-amber-400"
-                : "bg-violet-400"
-}`}
+                                                            exceeded
+                                                                ? "bg-rose-400"
+                                                                : nearLimit
+                                                                    ? "bg-amber-400"
+                                                                    : budget.percentage >= 70
+                                                                        ? "bg-amber-400"
+                                                                        : "bg-violet-400"
+                                                        }`}
                                                         style={{
                                                             width:
                                                                 `${displayPercentage}%`,
@@ -1325,5 +1280,4 @@ export default function Budgets() {
         </div>
 
     )
-
 }
