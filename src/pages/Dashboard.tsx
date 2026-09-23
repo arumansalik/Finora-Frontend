@@ -1,5 +1,7 @@
 import {
     ArrowDownRight,
+    ArrowLeft,
+    ArrowRight,
     ArrowUpRight,
     Plus,
     Wallet,
@@ -12,16 +14,11 @@ import {
     TrendingUp,
     TrendingDown,
     Sparkles,
-    Repeat2,
+    RefreshCw,
 } from "lucide-react"
 
-import {
-    useMemo,
-} from "react"
-
-import {
-    useQuery,
-} from "@tanstack/react-query"
+import { useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 
 import {
     Area,
@@ -38,46 +35,40 @@ import {
     YAxis,
 } from "recharts"
 
-import {
-    getSummary,
-} from "@/services/summaryApi"
+import DashboardSkeleton from "@/component/dashboard/DashboardSkeleton"
+import AnimatedNumber from "@/component/dashboard/AnimatedNumber"
+
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+
+import { getSummary } from "@/services/summaryApi"
 
 import {
     getTransactions,
+    type Transaction,
 } from "@/services/transactionApi"
 
 import {
-    getDashboardRecurring,
-} from "@/services/dashboardApi"
+    getBudgets,
+    type Budget,
+} from "@/services/budgetApi"
 
 import {
-    Button,
-} from "@/components/ui/button"
-
-import {
-    Card,
-} from "@/components/ui/card"
-
-import {
-    calculateFinancialHealth,
-} from "@/utils/financialHealth"
-
-import {
-    calculateFinancialInsights,
-} from "@/utils/financialInsights"
+    buildMonthComparison,
+} from "@/utils/monthComparison"
 
 
 function Dashboard() {
-
     // =====================================================
-    // AUTHENTICATION
+    // SELECTED MONTH
     // =====================================================
 
-    const token =
-        localStorage.getItem(
-            "token"
-        )
+    const [selectedDate, setSelectedDate] = useState(
+        () => new Date()
+    )
 
+    const selectedYear = selectedDate.getFullYear()
+    const selectedMonth = selectedDate.getMonth()
 
     // =====================================================
     // API — SUMMARY
@@ -87,26 +78,11 @@ function Dashboard() {
         data: summary,
         isLoading: summaryLoading,
         isError: summaryError,
+        refetch: refetchSummary,
     } = useQuery({
-
-        queryKey: [
-            "dashboard-summary",
-        ],
-
-        queryFn:
-        getSummary,
-
-        enabled:
-            Boolean(token),
-
-        staleTime:
-            30 * 1000,
-
-        refetchOnWindowFocus:
-            false,
-
+        queryKey: ["summary"],
+        queryFn: getSummary,
     })
-
 
     // =====================================================
     // API — TRANSACTIONS
@@ -116,362 +92,584 @@ function Dashboard() {
         data: transactions = [],
         isLoading: transactionsLoading,
         isError: transactionsError,
-    } = useQuery({
-
-        queryKey: [
-            "dashboard-transactions",
-        ],
-
-        queryFn:
-        getTransactions,
-
-        enabled:
-            Boolean(token),
-
-        staleTime:
-            30 * 1000,
-
-        refetchOnWindowFocus:
-            false,
-
+        refetch: refetchTransactions,
+    } = useQuery<Transaction[]>({
+        queryKey: ["transactions"],
+        queryFn: getTransactions,
     })
 
-
     // =====================================================
-    // API — RECURRING TRANSACTIONS
+    // API — BUDGETS
     // =====================================================
 
     const {
-        data: recurring = [],
-        isLoading: recurringLoading,
-        isError: recurringError,
-    } = useQuery({
-
+        data: budgetResponse,
+        isLoading: budgetsLoading,
+        isError: budgetsError,
+        refetch: refetchBudgets,
+    } = useQuery<Budget[]>({
         queryKey: [
-            "dashboard-recurring",
+            "dashboard-budgets",
+            selectedMonth,
+            selectedYear,
         ],
-
-        queryFn:
-        getDashboardRecurring,
-
-        enabled:
-            Boolean(token),
-
-        staleTime:
-            30 * 1000,
-
-        refetchOnWindowFocus:
-            false,
-
+        queryFn: () =>
+            getBudgets(
+                selectedMonth + 1,
+                selectedYear
+            ),
+        staleTime: 30 * 1000,
+        refetchOnWindowFocus: false,
     })
 
+    // =====================================================
+    // DASHBOARD REFRESH
+    // =====================================================
+
+    const refreshDashboard = () => {
+        void Promise.all([
+            refetchSummary(),
+            refetchTransactions(),
+            refetchBudgets(),
+        ])
+    }
 
     // =====================================================
-    // SAVINGS RATE
+    // DASHBOARD LOADING
     // =====================================================
 
-    const savingsRate =
-        useMemo(() => {
+    const dashboardLoading =
+        summaryLoading ||
+        transactionsLoading ||
+        budgetsLoading
 
-            if (
-                !summary ||
-                summary.totalIncome <= 0
-            ) {
-                return 0
+    // =====================================================
+    // MONTH LABEL
+    // =====================================================
+
+    const selectedMonthLabel = useMemo(() => {
+        return new Intl.DateTimeFormat("en-IN", {
+            month: "long",
+            year: "numeric",
+        }).format(selectedDate)
+    }, [selectedDate])
+
+    // =====================================================
+    // PREVIOUS MONTH LABEL
+    // =====================================================
+
+    const previousMonthLabel = useMemo(() => {
+        return new Date(
+            selectedYear,
+            selectedMonth - 1,
+            1
+        ).toLocaleDateString("en-IN", {
+            month: "long",
+            year: "numeric",
+        })
+    }, [selectedYear, selectedMonth])
+
+    // =====================================================
+    // NORMALIZE BUDGET RESPONSE
+    // =====================================================
+
+    const budgets = useMemo<Budget[]>(() => {
+        return budgetResponse ?? []
+    }, [budgetResponse])
+
+    // =====================================================
+    // FILTER TRANSACTIONS BY MONTH
+    // =====================================================
+
+    const monthlyTransactions = useMemo(() => {
+        return transactions.filter((transaction) => {
+            if (!transaction.date) {
+                return false
             }
 
-            return (
-                (
-                    (
-                        summary.totalIncome -
-                        summary.totalExpense
-                    ) /
-                    summary.totalIncome
-                ) * 100
+            const date = new Date(
+                `${transaction.date}T00:00:00`
             )
 
-        }, [
-            summary,
-        ])
-
+            return (
+                date.getFullYear() === selectedYear &&
+                date.getMonth() === selectedMonth
+            )
+        })
+    }, [
+        transactions,
+        selectedYear,
+        selectedMonth,
+    ])
 
     // =====================================================
-    // FINANCIAL INSIGHTS
+    // MONTHLY INCOME
     // =====================================================
 
-    const insights =
-        useMemo(
-            () =>
-                calculateFinancialInsights(
-                    transactions
+    const selectedMonthIncome = useMemo(() => {
+        return monthlyTransactions
+            .filter(
+                (transaction) =>
+                    transaction.type === "INCOME"
+            )
+            .reduce(
+                (total, transaction) =>
+                    total +
+                    Math.abs(
+                        Number(transaction.amount) || 0
+                    ),
+                0
+            )
+    }, [monthlyTransactions])
+
+    // =====================================================
+    // MONTHLY EXPENSE
+    // =====================================================
+
+    const selectedMonthExpense = useMemo(() => {
+        return monthlyTransactions
+            .filter(
+                (transaction) =>
+                    transaction.type === "EXPENSE"
+            )
+            .reduce(
+                (total, transaction) =>
+                    total +
+                    Math.abs(
+                        Number(transaction.amount) || 0
+                    ),
+                0
+            )
+    }, [monthlyTransactions])
+
+    // =====================================================
+    // MONTHLY SAVINGS RATE
+    // =====================================================
+
+    const monthlySavingsRate = useMemo(() => {
+        if (selectedMonthIncome <= 0) {
+            return 0
+        }
+
+        return (
+            ((selectedMonthIncome -
+                    selectedMonthExpense) /
+                selectedMonthIncome) *
+            100
+        )
+    }, [
+        selectedMonthIncome,
+        selectedMonthExpense,
+    ])
+
+    // =====================================================
+    // BUDGET HEALTH
+    // =====================================================
+
+    const budgetHealth = useMemo(() => {
+        return budgets.map((budget) => {
+            const limit =
+                Number(budget.budget) || 0
+
+            const spent =
+                Number(budget.spent) || 0
+
+            const remaining =
+                budget.remaining !== undefined &&
+                budget.remaining !== null
+                    ? Number(budget.remaining) || 0
+                    : limit - spent
+
+            const percentage =
+                limit > 0
+                    ? (spent / limit) * 100
+                    : 0
+
+            return {
+                ...budget,
+                limit,
+                spent,
+                remaining,
+                percentage: Math.max(0, percentage),
+                displayPercentage: Math.min(
+                    100,
+                    Math.max(0, percentage)
                 ),
-            [
-                transactions,
-            ]
+            }
+        })
+    }, [budgets])
+
+    // =====================================================
+    // TOTAL BUDGET
+    // =====================================================
+
+    const totalBudget = useMemo(() => {
+        return budgetHealth.reduce(
+            (total, budget) =>
+                total + budget.limit,
+            0
+        )
+    }, [budgetHealth])
+
+    // =====================================================
+    // TOTAL BUDGET SPENT
+    // =====================================================
+
+    const totalBudgetSpent = useMemo(() => {
+        return budgetHealth.reduce(
+            (total, budget) =>
+                total + budget.spent,
+            0
+        )
+    }, [budgetHealth])
+
+    // =====================================================
+    // OVERALL BUDGET %
+    // =====================================================
+
+    const overallBudgetPercentage =
+        totalBudget > 0
+            ? (totalBudgetSpent / totalBudget) * 100
+            : 0
+
+    const displayOverallBudgetPercentage =
+        Math.min(
+            100,
+            Math.max(
+                0,
+                overallBudgetPercentage
+            )
         )
 
+    // =====================================================
+    // BUDGET STATUS
+    // =====================================================
+
+    const getBudgetStatus = (
+        percentage: number
+    ) => {
+        if (percentage >= 100) {
+            return {
+                label: "Over budget",
+                className: "text-rose-400",
+            }
+        }
+
+        if (percentage >= 85) {
+            return {
+                label: "Near limit",
+                className: "text-amber-400",
+            }
+        }
+
+        return {
+            label: "On track",
+            className: "text-emerald-400",
+        }
+    }
 
     // =====================================================
     // FINANCIAL HEALTH
     // =====================================================
 
-    const health =
-        useMemo(
-            () =>
-                calculateFinancialHealth(
-                    insights.totalIncome,
-                    insights.totalExpense
-                ),
-            [
-                insights.totalIncome,
-                insights.totalExpense,
-            ]
+    const financialHealth = useMemo(() => {
+        let savingsScore = 0
+
+        if (selectedMonthIncome > 0) {
+            const savingsRate =
+                monthlySavingsRate
+
+            if (savingsRate >= 50) {
+                savingsScore = 70
+            } else if (savingsRate >= 30) {
+                savingsScore = 60
+            } else if (savingsRate >= 20) {
+                savingsScore = 50
+            } else if (savingsRate >= 10) {
+                savingsScore = 35
+            } else if (savingsRate > 0) {
+                savingsScore = 20
+            } else {
+                savingsScore = 5
+            }
+        }
+
+        let budgetScore = 30
+
+        if (totalBudget > 0) {
+            if (overallBudgetPercentage <= 50) {
+                budgetScore = 30
+            } else if (overallBudgetPercentage <= 70) {
+                budgetScore = 25
+            } else if (overallBudgetPercentage <= 85) {
+                budgetScore = 18
+            } else if (overallBudgetPercentage < 100) {
+                budgetScore = 10
+            } else {
+                budgetScore = 0
+            }
+        }
+
+        const score = Math.min(
+            100,
+            Math.max(
+                0,
+                Math.round(
+                    savingsScore + budgetScore
+                )
+            )
         )
 
+        let label = "Needs attention"
+
+        if (score >= 85) {
+            label = "Excellent"
+        } else if (score >= 70) {
+            label = "Healthy"
+        } else if (score >= 50) {
+            label = "Fair"
+        } else if (score >= 30) {
+            label = "Needs attention"
+        } else {
+            label = "At risk"
+        }
+
+        return {
+            score,
+            label,
+        }
+    }, [
+        monthlySavingsRate,
+        selectedMonthIncome,
+        totalBudget,
+        overallBudgetPercentage,
+    ])
 
     // =====================================================
-    // UPCOMING RECURRING TRANSACTIONS
+    // MONTH COMPARISON
     // =====================================================
 
-    const upcomingRecurring =
+    const comparison = useMemo(
+        () =>
+            buildMonthComparison(
+                transactions,
+                selectedYear,
+                selectedMonth
+            ),
+        [
+            transactions,
+            selectedYear,
+            selectedMonth,
+        ]
+    )
+
+    // =====================================================
+    // EXPENSE INSIGHT
+    // =====================================================
+
+    const expenseInsight =
+        comparison.expenseChange > 0
+            ? `Your spending increased by ${Math.abs(
+                comparison.expenseChange
+            ).toFixed(
+                1
+            )}% compared with ${previousMonthLabel}.`
+            : comparison.expenseChange < 0
+                ? `Your spending decreased by ${Math.abs(
+                    comparison.expenseChange
+                ).toFixed(
+                    1
+                )}% compared with ${previousMonthLabel}.`
+                : `Your spending is unchanged compared with ${previousMonthLabel}.`
+
+    // =====================================================
+    // SAVINGS INSIGHT
+    // =====================================================
+
+    const savingsInsight =
+        comparison.savingsChange > 0
+            ? `Your savings improved by ${Math.abs(
+                comparison.savingsChange
+            ).toFixed(1)}%.`
+            : comparison.savingsChange < 0
+                ? `Your savings decreased by ${Math.abs(
+                    comparison.savingsChange
+                ).toFixed(1)}%.`
+                : `Your savings are unchanged compared with ${previousMonthLabel}.`
+
+    // =====================================================
+    // CURRENT MONTH CATEGORY TOTALS
+    // =====================================================
+
+    const currentMonthCategoryTotals =
         useMemo(() => {
+            const map = new Map<string, number>()
 
-            return recurring
+            monthlyTransactions
                 .filter(
-                    item =>
-                        item.active
+                    (transaction) =>
+                        transaction.type === "EXPENSE"
                 )
-                .sort(
-                    (a, b) =>
-                        a.nextDate.localeCompare(
-                            b.nextDate
+                .forEach((transaction) => {
+                    const category =
+                        transaction.category ||
+                        "Uncategorized"
+
+                    map.set(
+                        category,
+                        (map.get(category) ?? 0) +
+                        Math.abs(
+                            Number(transaction.amount) || 0
                         )
-                )
-                .slice(
-                    0,
-                    5
-                )
+                    )
+                })
 
-        }, [
-            recurring,
-        ])
-
-
-    // =====================================================
-    // CATEGORY BREAKDOWN
-    // =====================================================
-
-    const categoryData =
-        useMemo(() => {
-
-            const totals:
-                Record<
-                    string,
-                    number
-                > = {}
-
-            transactions
-                .filter(
-                    transaction =>
-                        transaction.type ===
-                        "EXPENSE"
-                )
-                .forEach(
-                    transaction => {
-
-                        const category =
-                            transaction.category ||
-                            "Other"
-
-                        totals[category] =
-                            (
-                                totals[category] ??
-                                0
-                            ) +
-                            transaction.amount
-
-                    }
-                )
-
-            return Object.entries(
-                totals
-            )
+            return Array.from(map.entries())
                 .map(
-                    (
-                        [
-                            name,
-                            value,
-                        ]
-                    ) => ({
-                        name,
-                        value,
+                    ([category, amount]) => ({
+                        category,
+                        amount,
                     })
                 )
                 .sort(
-                    (
-                        a,
-                        b
-                    ) =>
-                        b.value -
-                        a.value
+                    (a, b) =>
+                        b.amount - a.amount
                 )
+        }, [monthlyTransactions])
 
-        }, [
-            transactions,
-        ])
+    // =====================================================
+    // BIGGEST CATEGORY
+    // =====================================================
 
+    const biggestCategory =
+        currentMonthCategoryTotals[0]
+
+    // =====================================================
+    // SAVINGS / DEFICIT
+    // =====================================================
+
+    const savingsLabel =
+        comparison.current.savings >= 0
+            ? "Savings"
+            : "Deficit"
 
     // =====================================================
     // INCOME / EXPENSE DATA
     // =====================================================
 
-    const incomeExpenseData =
-        useMemo(() => {
-
-            const income =
-                transactions
-                    .filter(
-                        transaction =>
-                            transaction.type ===
-                            "INCOME"
-                    )
-                    .reduce(
-                        (
-                            total,
-                            transaction
-                        ) =>
-                            total +
-                            transaction.amount,
-                        0
-                    )
-
-            const expense =
-                transactions
-                    .filter(
-                        transaction =>
-                            transaction.type ===
-                            "EXPENSE"
-                    )
-                    .reduce(
-                        (
-                            total,
-                            transaction
-                        ) =>
-                            total +
-                            transaction.amount,
-                        0
-                    )
-
-            return [
-                {
-                    name: "Income",
-                    amount: income,
-                },
-                {
-                    name: "Expenses",
-                    amount: expense,
-                },
-            ]
-
-        }, [
-            transactions,
-        ])
-
+    const incomeExpenseData = useMemo(
+        () => [
+            {
+                name: "Income",
+                amount: selectedMonthIncome,
+            },
+            {
+                name: "Expenses",
+                amount: selectedMonthExpense,
+            },
+        ],
+        [
+            selectedMonthIncome,
+            selectedMonthExpense,
+        ]
+    )
 
     // =====================================================
     // CASH FLOW TIMELINE
     // =====================================================
 
-    const cashFlowData =
-        useMemo(() => {
+    const cashFlowData = useMemo(() => {
+        const grouped: Record<
+            string,
+            {
+                income: number
+                expense: number
+            }
+        > = {}
 
-            const grouped:
-                Record<
-                    string,
-                    {
-                        income: number
-                        expense: number
-                    }
-                > = {}
+        monthlyTransactions.forEach(
+            (transaction) => {
+                const date = transaction.date
 
-            transactions.forEach(
-                transaction => {
-
-                    const date =
-                        transaction.date
-
-                    if (
-                        !grouped[date]
-                    ) {
-
-                        grouped[date] = {
-                            income: 0,
-                            expense: 0,
-                        }
-
-                    }
-
-                    if (
-                        transaction.type ===
-                        "INCOME"
-                    ) {
-
-                        grouped[
-                            date
-                            ].income +=
-                            transaction.amount
-
-                    } else {
-
-                        grouped[
-                            date
-                            ].expense +=
-                            transaction.amount
-
-                    }
-
+                if (!date) {
+                    return
                 }
+
+                if (!grouped[date]) {
+                    grouped[date] = {
+                        income: 0,
+                        expense: 0,
+                    }
+                }
+
+                const amount =
+                    Math.abs(
+                        Number(transaction.amount) || 0
+                    )
+
+                if (
+                    transaction.type === "INCOME"
+                ) {
+                    grouped[date].income += amount
+                } else {
+                    grouped[date].expense += amount
+                }
+            }
+        )
+
+        return Object.entries(grouped)
+            .sort((a, b) =>
+                a[0].localeCompare(b[0])
             )
-
-            return Object.entries(
-                grouped
-            )
-                .sort(
-                    (
-                        a,
-                        b
-                    ) =>
-                        a[0].localeCompare(
-                            b[0]
-                        )
-                )
-                .map(
-                    (
-                        [
-                            date,
-                            values,
-                        ]
-                    ) => ({
-
-                        date,
-
-                        income:
-                        values.income,
-
-                        expense:
+            .map(
+                ([date, values]) => ({
+                    date,
+                    income: values.income,
+                    expense: values.expense,
+                    net:
+                        values.income -
                         values.expense,
+                })
+            )
+    }, [monthlyTransactions])
 
-                        net:
-                            values.income -
-                            values.expense,
+    // =====================================================
+    // CATEGORY BREAKDOWN
+    // =====================================================
 
-                    })
-                )
+    const categoryData = useMemo(() => {
+        const totals: Record<
+            string,
+            number
+        > = {}
 
-        }, [
-            transactions,
-        ])
+        monthlyTransactions
+            .filter(
+                (transaction) =>
+                    transaction.type === "EXPENSE"
+            )
+            .forEach((transaction) => {
+                const category =
+                    transaction.category ||
+                    "Other"
 
+                totals[category] =
+                    (totals[category] ?? 0) +
+                    Math.abs(
+                        Number(transaction.amount) || 0
+                    )
+            })
+
+        return Object.entries(totals)
+            .map(([name, value]) => ({
+                name,
+                value,
+            }))
+            .sort(
+                (a, b) =>
+                    b.value - a.value
+            )
+    }, [monthlyTransactions])
 
     // =====================================================
     // CATEGORY ICON
@@ -480,109 +678,50 @@ function Dashboard() {
     const getCategoryIcon = (
         category?: string
     ) => {
-
         const value =
-            (
-                category ??
-                ""
-            ).toLowerCase()
-
+            (category ?? "").toLowerCase()
 
         if (
-            value.includes(
-                "food"
-            ) ||
-            value.includes(
-                "restaurant"
-            )
+            value.includes("food") ||
+            value.includes("restaurant") ||
+            value.includes("dining")
         ) {
-
-            return (
-                <Utensils
-                    size={18}
-                />
-            )
-
+            return <Utensils size={18} />
         }
-
 
         if (
-            value.includes(
-                "travel"
-            ) ||
-            value.includes(
-                "transport"
-            ) ||
-            value.includes(
-                "bus"
-            )
+            value.includes("travel") ||
+            value.includes("transport") ||
+            value.includes("bus") ||
+            value.includes("uber") ||
+            value.includes("fuel")
         ) {
-
-            return (
-                <Bus
-                    size={18}
-                />
-            )
-
+            return <Bus size={18} />
         }
-
 
         if (
-            value.includes(
-                "shopping"
-            )
+            value.includes("shopping")
         ) {
-
             return (
-                <ShoppingBag
-                    size={18}
-                />
+                <ShoppingBag size={18} />
             )
-
         }
-
 
         if (
-            value.includes(
-                "salary"
-            ) ||
-            value.includes(
-                "income"
-            )
+            value.includes("salary") ||
+            value.includes("income")
         ) {
-
             return (
-                <CircleDollarSign
-                    size={18}
-                />
+                <CircleDollarSign size={18} />
             )
-
         }
 
-
-        if (
-            value.includes(
-                "bill"
-            )
-        ) {
-
-            return (
-                <Receipt
-                    size={18}
-                />
-            )
-
+        if (value.includes("bill")) {
+            return <Receipt size={18} />
         }
 
-
-        return (
-            <Wallet
-                size={18}
-            />
-        )
-
+        return <Wallet size={18} />
     }
-
 
     // =====================================================
     // FORMAT MONEY
@@ -592,8 +731,7 @@ function Dashboard() {
         amount: number,
         decimals = false
     ) => {
-
-        return amount.toLocaleString(
+        return Number(amount || 0).toLocaleString(
             "en-IN",
             decimals
                 ? {
@@ -602,52 +740,78 @@ function Dashboard() {
                 }
                 : undefined
         )
-
     }
-
-
-    // =====================================================
-    // FORMAT DATE
-    // =====================================================
-
-    const formatDate = (
-        date: string
-    ) => {
-
-        return new Date(
-            `${date}T00:00:00`
-        ).toLocaleDateString(
-            "en-IN",
-            {
-                day: "numeric",
-                month: "short",
-            }
-        )
-
-    }
-
 
     // =====================================================
     // CURRENT DATE
     // =====================================================
 
-    const currentDate =
-        useMemo(() => {
+    const currentDate = useMemo(() => {
+        return new Intl.DateTimeFormat(
+            "en-IN",
+            {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+            }
+        ).format(new Date())
+    }, [])
 
-            return new Intl.DateTimeFormat(
-                "en-IN",
-                {
-                    weekday: "long",
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                }
-            ).format(
-                new Date()
-            )
+    // =====================================================
+    // MONTH NAVIGATION
+    // =====================================================
 
-        }, [])
+    const goToPreviousMonth = () => {
+        setSelectedDate(
+            (current) =>
+                new Date(
+                    current.getFullYear(),
+                    current.getMonth() - 1,
+                    1
+                )
+        )
+    }
 
+    const goToNextMonth = () => {
+        setSelectedDate(
+            (current) =>
+                new Date(
+                    current.getFullYear(),
+                    current.getMonth() + 1,
+                    1
+                )
+        )
+    }
+
+    // =====================================================
+    // PERCENTAGE FORMATTER
+    // =====================================================
+
+    const formatChange = (
+        value: number
+    ) => {
+        const absolute =
+            Math.abs(value).toFixed(1)
+
+        if (value > 0) {
+            return `↑ ${absolute}%`
+        }
+
+        if (value < 0) {
+            return `↓ ${absolute}%`
+        }
+
+        return "— 0%"
+    }
+
+    // =====================================================
+    // LOADING STATE
+    // =====================================================
+
+    if (dashboardLoading) {
+        return <DashboardSkeleton />
+    }
 
     // =====================================================
     // ERROR STATE
@@ -655,42 +819,25 @@ function Dashboard() {
 
     if (
         summaryError ||
-        transactionsError ||
-        recurringError
+        transactionsError
     ) {
-
         return (
-
             <div className="min-h-screen bg-[#07080c] text-white">
-
                 <div className="flex min-h-screen items-center justify-center p-6">
-
                     <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.025] p-8 text-center shadow-2xl backdrop-blur-xl">
-
                         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-500/10 text-rose-400">
-
-                            <ArrowDownRight
-                                size={24}
-                            />
-
+                            <ArrowDownRight size={24} />
                         </div>
 
-
                         <h2 className="mt-5 text-xl font-semibold text-white">
-
                             Unable to load dashboard
-
                         </h2>
 
-
                         <p className="mt-2 text-sm leading-6 text-white/45">
-
                             We couldn't retrieve your financial
                             information. Make sure your Spring
                             Boot backend is running.
-
                         </p>
-
 
                         <Button
                             className="mt-6 rounded-xl bg-white text-black hover:bg-white/90"
@@ -698,97 +845,131 @@ function Dashboard() {
                                 window.location.reload()
                             }
                         >
-
                             Try again
-
                         </Button>
-
                     </div>
-
                 </div>
-
             </div>
-
         )
-
     }
-
 
     // =====================================================
     // DASHBOARD
     // =====================================================
 
     return (
-
         <div className="min-h-screen bg-[#07080c] text-white">
 
-
-            {/* ================================================= */}
             {/* HEADER */}
-            {/* ================================================= */}
 
             <header className="sticky top-0 z-20 border-b border-white/[0.07] bg-[#07080c]/85 backdrop-blur-xl">
-
                 <div className="flex flex-col gap-5 px-6 py-6 sm:flex-row sm:items-center sm:justify-between lg:px-10">
 
                     <div>
-
                         <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/35">
-
                             {currentDate}
-
                         </p>
-
 
                         <h1 className="mt-2 text-2xl font-bold tracking-[-0.02em] text-white sm:text-3xl">
-
                             Good evening 👋
-
                         </h1>
 
-
                         <p className="mt-1 text-sm text-white/40">
-
                             Here's your financial overview.
-
                         </p>
-
                     </div>
 
+                    <div className="flex flex-wrap items-center gap-2">
 
-                    <Button className="group w-fit rounded-xl bg-white px-4 text-black shadow-lg shadow-white/5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/90 hover:shadow-xl">
+                        {/* REFRESH */}
 
-                        <Plus
-                            size={17}
-                            className="transition-transform duration-300 group-hover:rotate-90"
-                        />
+                        <button
+                            onClick={refreshDashboard}
+                            disabled={dashboardLoading}
+                            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs font-medium text-white/40 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            <RefreshCw
+                                size={14}
+                                className={
+                                    dashboardLoading
+                                        ? "animate-spin"
+                                        : ""
+                                }
+                            />
 
-                        Add transaction
+                            Refresh
+                        </button>
 
-                    </Button>
+                        {/* ADD TRANSACTION */}
 
+                        <Button className="group w-fit rounded-xl bg-white px-4 text-black shadow-lg shadow-white/5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/90 hover:shadow-xl">
+                            <Plus
+                                size={17}
+                                className="transition-transform duration-300 group-hover:rotate-90"
+                            />
+                            Add transaction
+                        </Button>
+
+                    </div>
                 </div>
-
             </header>
 
-
-            {/* ================================================= */}
             {/* MAIN */}
-            {/* ================================================= */}
 
             <main className="space-y-6 p-6 lg:p-10">
 
+                {/* MONTH SELECTOR */}
 
-                {/* ================================================= */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/30">
+                            Selected period
+                        </p>
+
+                        <h2 className="mt-1 text-xl font-bold text-white">
+                            {selectedMonthLabel}
+                        </h2>
+
+                        <p className="mt-1 text-xs text-white/30">
+                            {monthlyTransactions.length} transaction
+                            {monthlyTransactions.length === 1
+                                ? ""
+                                : "s"} this month
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+
+                        <button
+                            onClick={goToPreviousMonth}
+                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/50 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+                            aria-label="Previous month"
+                        >
+                            <ArrowLeft size={17} />
+                        </button>
+
+                        <div className="min-w-[150px] rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-center text-sm font-medium text-white/70">
+                            {selectedMonthLabel}
+                        </div>
+
+                        <button
+                            onClick={goToNextMonth}
+                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/50 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+                            aria-label="Next month"
+                        >
+                            <ArrowRight size={17} />
+                        </button>
+
+                    </div>
+                </div>
+
                 {/* BALANCE HERO */}
-                {/* ================================================= */}
 
                 <Card className="group relative overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
 
                     <div className="pointer-events-none absolute -right-32 -top-32 h-80 w-80 rounded-full bg-violet-500/10 blur-3xl transition duration-700 group-hover:bg-violet-500/15" />
 
                     <div className="pointer-events-none absolute -bottom-40 -left-20 h-72 w-72 rounded-full bg-emerald-500/5 blur-3xl" />
-
 
                     <div className="relative p-7 sm:p-8">
 
@@ -797,99 +978,71 @@ function Dashboard() {
                             <div>
 
                                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">
-
                                     Total balance
-
                                 </p>
 
+                                {/* ANIMATED BALANCE */}
 
-                                <h2 className="mt-4 text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl">
-
-                                    {summaryLoading
-                                        ? "Loading..."
-                                        : `₹${formatMoney(
-                                            summary?.balance ?? 0,
-                                            true
-                                        )}`}
-
-                                </h2>
-
+                                <div className="mt-4 text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl">
+                                    <AnimatedNumber
+                                        value={
+                                            Number(summary?.balance) || 0
+                                        }
+                                        prefix="₹"
+                                    />
+                                </div>
 
                                 <div className="mt-4 flex flex-wrap items-center gap-2">
 
                                     <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/10 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
-
-                                        <TrendingUp
-                                            size={13}
-                                        />
-
+                                        <TrendingUp size={13} />
                                         Healthy
-
                                     </span>
 
-
                                     <span className="text-xs text-white/30">
-
                                         Current available balance
-
                                     </span>
 
                                 </div>
 
                             </div>
 
-
                             <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-3.5 text-white shadow-xl shadow-black/10">
-
-                                <Wallet
-                                    size={22}
-                                />
-
+                                <Wallet size={22} />
                             </div>
 
                         </div>
 
+                        {/* MINI CASH FLOW CHART */}
 
-                        {/* MINI CHART */}
-
-                        <div className="mt-10 h-28 sm:h-32">
+                        <div className="mt-10 h-28 min-w-0 sm:h-32">
 
                             {cashFlowData.length > 0 ? (
-
                                 <ResponsiveContainer
                                     width="100%"
                                     height="100%"
                                 >
-
                                     <BarChart
-                                        data={
-                                            cashFlowData
-                                        }
+                                        data={cashFlowData}
                                         barGap={3}
                                     >
-
                                         <XAxis
                                             dataKey="date"
                                             hide
                                         />
 
-                                        <YAxis
-                                            hide
-                                        />
+                                        <YAxis hide />
 
                                         <Tooltip
                                             cursor={{
                                                 fill: "rgba(255,255,255,0.03)",
                                             }}
                                             contentStyle={{
-                                                background:
-                                                    "#111318",
+                                                background: "#111318",
                                                 border:
                                                     "1px solid rgba(255,255,255,0.1)",
-                                                borderRadius:
-                                                    "14px",
-                                                color:
-                                                    "white",
+                                                borderRadius: "14px",
+                                                color: "white",
                                             }}
                                         />
 
@@ -897,38 +1050,22 @@ function Dashboard() {
                                             dataKey="income"
                                             name="Income"
                                             fill="#34d399"
-                                            radius={[
-                                                6,
-                                                6,
-                                                2,
-                                                2,
-                                            ]}
+                                            radius={[6, 6, 2, 2]}
                                         />
 
                                         <Bar
                                             dataKey="expense"
                                             name="Expenses"
                                             fill="#fb7185"
-                                            radius={[
-                                                6,
-                                                6,
-                                                2,
-                                                2,
-                                            ]}
+                                            radius={[6, 6, 2, 2]}
                                         />
-
                                     </BarChart>
-
                                 </ResponsiveContainer>
-
                             ) : (
-
                                 <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
-
-                                    No cash-flow data yet.
-
+                                    No cash-flow data for{" "}
+                                    {selectedMonthLabel}.
                                 </div>
-
                             )}
 
                         </div>
@@ -937,13 +1074,9 @@ function Dashboard() {
 
                 </Card>
 
-
-                {/* ================================================= */}
                 {/* METRICS */}
-                {/* ================================================= */}
 
                 <div className="grid gap-4 md:grid-cols-3">
-
 
                     {/* INCOME */}
 
@@ -952,51 +1085,34 @@ function Dashboard() {
                         <div className="flex items-center justify-between">
 
                             <p className="text-sm font-medium text-white/45">
-
                                 Income
-
                             </p>
 
-
                             <div className="rounded-xl border border-emerald-400/10 bg-emerald-400/10 p-2.5 text-emerald-400">
-
-                                <ArrowUpRight
-                                    size={17}
-                                />
-
+                                <ArrowUpRight size={17} />
                             </div>
 
                         </div>
 
-
-                        <p className="mt-5 text-2xl font-bold tracking-tight text-white">
-
-                            {summaryLoading
-                                ? "Loading..."
-                                : `₹${formatMoney(
-                                    summary?.totalIncome ?? 0
-                                )}`}
-
-                        </p>
-
+                        <div className="mt-5 text-2xl font-bold tracking-tight text-white">
+                            <AnimatedNumber
+                                value={selectedMonthIncome}
+                                prefix="₹"
+                            />
+                        </div>
 
                         <div className="mt-2 flex items-center gap-1.5">
-
                             <TrendingUp
                                 size={13}
                                 className="text-emerald-400"
                             />
 
                             <p className="text-xs text-emerald-400">
-
-                                Total income
-
+                                {selectedMonthLabel}
                             </p>
-
                         </div>
 
                     </Card>
-
 
                     {/* EXPENSE */}
 
@@ -1005,51 +1121,34 @@ function Dashboard() {
                         <div className="flex items-center justify-between">
 
                             <p className="text-sm font-medium text-white/45">
-
                                 Expenses
-
                             </p>
 
-
                             <div className="rounded-xl border border-rose-400/10 bg-rose-400/10 p-2.5 text-rose-400">
-
-                                <ArrowDownRight
-                                    size={17}
-                                />
-
+                                <ArrowDownRight size={17} />
                             </div>
 
                         </div>
 
-
-                        <p className="mt-5 text-2xl font-bold tracking-tight text-white">
-
-                            {summaryLoading
-                                ? "Loading..."
-                                : `₹${formatMoney(
-                                    summary?.totalExpense ?? 0
-                                )}`}
-
-                        </p>
-
+                        <div className="mt-5 text-2xl font-bold tracking-tight text-white">
+                            <AnimatedNumber
+                                value={selectedMonthExpense}
+                                prefix="₹"
+                            />
+                        </div>
 
                         <div className="mt-2 flex items-center gap-1.5">
-
                             <TrendingDown
                                 size={13}
                                 className="text-rose-400"
                             />
 
                             <p className="text-xs text-rose-400">
-
-                                Total expenses
-
+                                {selectedMonthLabel}
                             </p>
-
                         </div>
 
                     </Card>
-
 
                     {/* SAVINGS */}
 
@@ -1058,524 +1157,286 @@ function Dashboard() {
                         <div className="flex items-center justify-between">
 
                             <p className="text-sm font-medium text-white/45">
-
                                 Savings rate
-
                             </p>
 
-
                             <div className="rounded-xl border border-violet-400/10 bg-violet-400/10 p-2.5 text-violet-400">
-
-                                <Sparkles
-                                    size={17}
-                                />
-
+                                <Sparkles size={17} />
                             </div>
 
                         </div>
 
-
                         <p className="mt-5 text-2xl font-bold tracking-tight text-white">
-
-                            {summaryLoading
-                                ? "Loading..."
-                                : `${savingsRate.toFixed(
-                                    1
-                                )}%`}
-
+                            {monthlySavingsRate.toFixed(1)}%
                         </p>
 
-
                         <p className="mt-2 text-xs text-white/35">
-
-                            {savingsRate >= 50
+                            {monthlySavingsRate >= 50
                                 ? "Excellent savings"
-                                : savingsRate >= 30
+                                : monthlySavingsRate >= 30
                                     ? "Healthy savings"
-                                    : savingsRate >= 15
+                                    : monthlySavingsRate >= 15
                                         ? "Good progress"
                                         : "Needs attention"}
-
                         </p>
 
                     </Card>
 
                 </div>
 
+                {/* MONTH COMPARISON */}
 
-                {/* ================================================= */}
-                {/* RECENT + UPCOMING */}
-                {/* ================================================= */}
+                <div className="grid gap-4 md:grid-cols-3">
 
-                <div className="grid gap-6 xl:grid-cols-2">
+                    {/* EXPENSE COMPARISON */}
 
+                    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
 
-                    {/* RECENT TRANSACTIONS */}
-
-                    <Card className="overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
-
-                        <div className="flex flex-col gap-4 border-b border-white/[0.07] p-6 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start justify-between">
 
                             <div>
 
-                                <div className="flex items-center gap-2">
+                                <p className="text-xs text-white/30">
+                                    Expenses
+                                </p>
 
-                                    <h3 className="font-semibold text-white">
-
-                                        Recent transactions
-
-                                    </h3>
-
-
-                                    <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/30">
-
-                                        {transactions.length}
-
-                                    </span>
-
-                                </div>
-
-
-                                <p className="mt-1 text-sm text-white/35">
-
-                                    Your latest financial activity
-
+                                <p className="mt-2 text-xl font-bold">
+                                    ₹
+                                    {comparison.current.expense.toLocaleString(
+                                        "en-IN"
+                                    )}
                                 </p>
 
                             </div>
 
-
-                            <button
-                                className="w-fit text-sm font-medium text-white/40 transition hover:text-white"
-                                onClick={() =>
-                                    window.location.href =
-                                        "/transactions"
-                                }
+                            <span
+                                className={`rounded-lg px-2.5 py-1 text-xs font-medium ${
+                                    comparison.expenseChange > 0
+                                        ? "bg-rose-400/10 text-rose-400"
+                                        : comparison.expenseChange < 0
+                                            ? "bg-emerald-400/10 text-emerald-400"
+                                            : "bg-white/5 text-white/40"
+                                }`}
                             >
-
-                                View all →
-
-                            </button>
+                                {formatChange(
+                                    comparison.expenseChange
+                                )}
+                            </span>
 
                         </div>
 
+                        <p className="mt-3 text-xs text-white/20">
+                            Compared with {previousMonthLabel}
+                        </p>
 
-                        <div className="divide-y divide-white/[0.05]">
+                    </div>
 
-                            {transactionsLoading ? (
+                    {/* INCOME COMPARISON */}
 
-                                <>
+                    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
 
-                                    {Array.from({
-                                        length: 3,
-                                    }).map(
-                                        (
-                                            _,
-                                            index
-                                        ) => (
+                        <div className="flex items-start justify-between">
 
-                                            <div
-                                                key={
-                                                    index
-                                                }
-                                                className="flex h-20 animate-pulse items-center gap-4 px-6"
-                                            >
+                            <div>
 
-                                                <div className="h-10 w-10 rounded-xl bg-white/5" />
+                                <p className="text-xs text-white/30">
+                                    Income
+                                </p>
 
-                                                <div className="space-y-2">
-
-                                                    <div className="h-3 w-32 rounded bg-white/5" />
-
-                                                    <div className="h-2 w-24 rounded bg-white/5" />
-
-                                                </div>
-
-                                            </div>
-
-                                        )
+                                <p className="mt-2 text-xl font-bold">
+                                    ₹
+                                    {comparison.current.income.toLocaleString(
+                                        "en-IN"
                                     )}
+                                </p>
 
-                                </>
+                            </div>
 
-                            ) : transactions.length === 0 ? (
-
-                                <div className="px-6 py-14 text-center">
-
-                                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/30">
-
-                                        <Wallet
-                                            size={22}
-                                        />
-
-                                    </div>
-
-
-                                    <p className="mt-4 font-medium text-white">
-
-                                        No transactions yet
-
-                                    </p>
-
-
-                                    <p className="mt-1 text-sm text-white/35">
-
-                                        Add your first transaction to get started.
-
-                                    </p>
-
-
-                                    <Button className="mt-5 rounded-xl bg-white text-black hover:bg-white/90">
-
-                                        <Plus
-                                            size={16}
-                                        />
-
-                                        Add transaction
-
-                                    </Button>
-
-                                </div>
-
-                            ) : (
-
-                                transactions
-                                    .slice(
-                                        0,
-                                        5
-                                    )
-                                    .map(
-                                        transaction => (
-
-                                            <div
-                                                key={
-                                                    transaction.id
-                                                }
-                                                className="group flex items-center justify-between gap-4 px-6 py-4 transition-colors duration-200 hover:bg-white/[0.025]"
-                                            >
-
-                                                {/* LEFT */}
-
-                                                <div className="flex min-w-0 items-center gap-4">
-
-                                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-white/55 transition group-hover:border-white/15 group-hover:text-white">
-
-                                                        {getCategoryIcon(
-                                                            transaction.category
-                                                        )}
-
-                                                    </div>
-
-
-                                                    <div className="min-w-0">
-
-                                                        <p className="truncate text-sm font-semibold text-white">
-
-                                                            {transaction.title ||
-                                                                "Untitled transaction"}
-
-                                                        </p>
-
-
-                                                        <p className="mt-1 truncate text-xs text-white/30">
-
-                                                            {transaction.category ||
-                                                                "Other"}
-
-                                                            {" · "}
-
-                                                            {transaction.date}
-
-                                                        </p>
-
-                                                    </div>
-
-                                                </div>
-
-
-                                                {/* RIGHT */}
-
-                                                <div className="flex shrink-0 items-center gap-4">
-
-                                                    <div className="text-right">
-
-                                                        <p
-                                                            className={
-                                                                transaction.type ===
-                                                                "INCOME"
-                                                                    ? "text-sm font-bold text-emerald-400"
-                                                                    : "text-sm font-bold text-white"
-                                                            }
-                                                        >
-
-                                                            {transaction.type ===
-                                                            "INCOME"
-                                                                ? "+"
-                                                                : "-"}
-
-                                                            ₹
-                                                            {formatMoney(
-                                                                transaction.amount
-                                                            )}
-
-                                                        </p>
-
-
-                                                        <p className="mt-1 text-[10px] uppercase tracking-wider text-white/20">
-
-                                                            {
-                                                                transaction.type
-                                                            }
-
-                                                        </p>
-
-                                                    </div>
-
-
-                                                    <button className="hidden rounded-lg p-2 text-white/20 opacity-0 transition hover:bg-white/5 hover:text-white sm:block sm:group-hover:opacity-100">
-
-                                                        <MoreHorizontal
-                                                            size={18}
-                                                        />
-
-                                                    </button>
-
-                                                </div>
-
-                                            </div>
-
-                                        )
-                                    )
-
-                            )}
+                            <span
+                                className={`rounded-lg px-2.5 py-1 text-xs font-medium ${
+                                    comparison.incomeChange > 0
+                                        ? "bg-emerald-400/10 text-emerald-400"
+                                        : comparison.incomeChange < 0
+                                            ? "bg-rose-400/10 text-rose-400"
+                                            : "bg-white/5 text-white/40"
+                                }`}
+                            >
+                                {formatChange(
+                                    comparison.incomeChange
+                                )}
+                            </span>
 
                         </div>
 
-                    </Card>
+                        <p className="mt-3 text-xs text-white/20">
+                            Compared with {previousMonthLabel}
+                        </p>
 
+                    </div>
 
-                    {/* UPCOMING PAYMENTS */}
+                    {/* SAVINGS COMPARISON */}
 
-                    <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
+                    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+
+                        <div className="flex items-start justify-between">
+
+                            <div>
+
+                                <p className="text-xs text-white/30">
+                                    {savingsLabel}
+                                </p>
+
+                                <p
+                                    className={`mt-2 text-xl font-bold ${
+                                        comparison.current.savings >= 0
+                                            ? "text-emerald-400"
+                                            : "text-rose-400"
+                                    }`}
+                                >
+                                    ₹
+                                    {Math.abs(
+                                        comparison.current.savings
+                                    ).toLocaleString("en-IN")}
+                                </p>
+
+                            </div>
+
+                            <span
+                                className={`rounded-lg px-2.5 py-1 text-xs font-medium ${
+                                    comparison.savingsChange > 0
+                                        ? "bg-emerald-400/10 text-emerald-400"
+                                        : comparison.savingsChange < 0
+                                            ? "bg-rose-400/10 text-rose-400"
+                                            : "bg-white/5 text-white/40"
+                                }`}
+                            >
+                                {formatChange(
+                                    comparison.savingsChange
+                                )}
+                            </span>
+
+                        </div>
+
+                        <p className="mt-3 text-xs text-white/20">
+                            Compared with {previousMonthLabel}
+                        </p>
+
+                    </div>
+
+                </div>
+
+                {/* FINANCIAL INTELLIGENCE */}
+
+                <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
+
+                    <div className="flex items-center gap-3">
+
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-400/10">
+                            <Sparkles
+                                size={17}
+                                className="text-violet-300"
+                            />
+                        </div>
 
                         <div>
 
                             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-400">
-
-                                Automation
-
+                                Financial intelligence
                             </p>
 
-
                             <h2 className="mt-1 text-lg font-bold">
-
-                                Upcoming payments
-
+                                What's changing?
                             </h2>
 
                         </div>
 
+                    </div>
 
-                        <div className="mt-5 space-y-3">
+                    <div className="mt-5 grid gap-3 md:grid-cols-3">
 
-                            {recurringLoading ? (
+                        <div className="rounded-2xl border border-white/[0.06] bg-black/10 p-5">
 
-                                Array.from({
-                                    length: 3,
-                                }).map(
-                                    (
-                                        _,
-                                        index
-                                    ) => (
+                            <p className="text-xs text-white/25">
+                                Spending trend
+                            </p>
 
-                                        <div
-                                            key={
-                                                index
-                                            }
-                                            className="flex animate-pulse items-center gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.015] p-4"
-                                        >
+                            <p className="mt-2 text-sm leading-6 text-white/60">
+                                {expenseInsight}
+                            </p>
 
-                                            <div className="h-10 w-10 rounded-xl bg-white/5" />
+                        </div>
 
-                                            <div className="flex-1 space-y-2">
+                        <div className="rounded-2xl border border-white/[0.06] bg-black/10 p-5">
 
-                                                <div className="h-3 w-32 rounded bg-white/5" />
+                            <p className="text-xs text-white/25">
+                                Savings trend
+                            </p>
 
-                                                <div className="h-2 w-20 rounded bg-white/5" />
+                            <p className="mt-2 text-sm leading-6 text-white/60">
+                                {savingsInsight}
+                            </p>
 
-                                            </div>
+                        </div>
 
-                                        </div>
+                        <div className="rounded-2xl border border-white/[0.06] bg-black/10 p-5">
 
-                                    )
-                                )
+                            <p className="text-xs text-white/25">
+                                Biggest spending category
+                            </p>
 
-                            ) : upcomingRecurring.length === 0 ? (
-
-                                <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
-
-                                    <Repeat2
-                                        size={22}
-                                        className="mx-auto text-white/20"
-                                    />
-
-                                    <p className="mt-3 text-sm text-white/30">
-
-                                        No upcoming payments
-
+                            {biggestCategory ? (
+                                <>
+                                    <p className="mt-2 text-lg font-bold">
+                                        {biggestCategory.category}
                                     </p>
 
-                                </div>
-
+                                    <p className="mt-1 text-sm text-white/35">
+                                        ₹
+                                        {formatMoney(
+                                            biggestCategory.amount
+                                        )}{" "}
+                                        spent this month
+                                    </p>
+                                </>
                             ) : (
-
-                                upcomingRecurring.map(
-                                    item => (
-
-                                        <div
-                                            key={
-                                                item.id
-                                            }
-                                            className="flex items-center gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.015] p-4"
-                                        >
-
-                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-400/10">
-
-                                                <Repeat2
-                                                    size={16}
-                                                    className="text-violet-300"
-                                                />
-
-                                            </div>
-
-
-                                            <div className="min-w-0 flex-1">
-
-                                                <p className="truncate text-sm font-medium">
-
-                                                    {
-                                                        item.title
-                                                    }
-
-                                                </p>
-
-
-                                                <p className="mt-1 text-xs text-white/25">
-
-                                                    {
-                                                        item.category.name
-                                                    }
-
-                                                    {" · "}
-
-                                                    {formatDate(
-                                                        item.nextDate
-                                                    )}
-
-                                                </p>
-
-                                            </div>
-
-
-                                            <p
-                                                className={`shrink-0 text-sm font-bold ${
-                                                    item.type ===
-                                                    "INCOME"
-                                                        ? "text-emerald-400"
-                                                        : "text-white"
-                                                }`}
-                                            >
-
-                                                {item.type ===
-                                                "INCOME"
-                                                    ? "+"
-                                                    : "-"}
-
-                                                ₹
-                                                {formatMoney(
-                                                    item.amount
-                                                )}
-
-                                            </p>
-
-                                        </div>
-
-                                    )
-                                )
-
+                                <p className="mt-2 text-sm text-white/30">
+                                    No expense data yet
+                                </p>
                             )}
 
                         </div>
 
-                    </Card>
+                    </div>
 
-                </div>
+                </section>
 
-
-                {/* ================================================= */}
                 {/* ANALYTICS */}
-                {/* ================================================= */}
 
-                <div className="grid gap-6 xl:grid-cols-3">
-
+                <div className="grid min-w-0 gap-6 xl:grid-cols-3">
 
                     {/* CASH FLOW */}
 
-                    <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl xl:col-span-2">
+                    <Card className="min-w-0 rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl xl:col-span-2">
 
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <h3 className="font-semibold text-white">
+                            Cash flow
+                        </h3>
 
-                            <div>
+                        <p className="mt-1 text-sm text-white/35">
+                            Income vs expenses over time
+                        </p>
 
-                                <div className="flex items-center gap-2">
+                        {/* RESPONSIVE CHART HEIGHT */}
 
-                                    <h3 className="font-semibold text-white">
-
-                                        Cash flow
-
-                                    </h3>
-
-
-                                    <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/35">
-
-                                        LIVE
-
-                                    </span>
-
-                                </div>
-
-
-                                <p className="mt-1 text-sm text-white/35">
-
-                                    Income vs expenses over time
-
-                                </p>
-
-                            </div>
-
-
-                            <button className="w-fit rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-medium text-white/50 transition hover:border-white/20 hover:text-white">
-
-                                August 2026
-
-                            </button>
-
-                        </div>
-
-
-                        <div className="mt-8 h-64">
+                        <div className="mt-8 h-[260px] min-w-0 sm:h-[300px] lg:h-[320px]">
 
                             {cashFlowData.length > 0 ? (
-
                                 <ResponsiveContainer
                                     width="100%"
                                     height="100%"
                                 >
-
                                     <AreaChart
-                                        data={
-                                            cashFlowData
-                                        }
+                                        data={cashFlowData}
                                         margin={{
                                             top: 5,
                                             right: 5,
@@ -1583,12 +1444,9 @@ function Dashboard() {
                                             bottom: 0,
                                         }}
                                     >
-
                                         <CartesianGrid
                                             stroke="rgba(255,255,255,0.06)"
-                                            vertical={
-                                                false
-                                            }
+                                            vertical={false}
                                         />
 
                                         <XAxis
@@ -1597,20 +1455,11 @@ function Dashboard() {
                                                 fill: "#71717a",
                                                 fontSize: 11,
                                             }}
-                                            tickFormatter={
-                                                value =>
-                                                    String(
-                                                        value
-                                                    ).slice(
-                                                        5
-                                                    )
+                                            tickFormatter={(value) =>
+                                                String(value).slice(5)
                                             }
-                                            axisLine={
-                                                false
-                                            }
-                                            tickLine={
-                                                false
-                                            }
+                                            axisLine={false}
+                                            tickLine={false}
                                         />
 
                                         <YAxis
@@ -1618,16 +1467,10 @@ function Dashboard() {
                                                 fill: "#71717a",
                                                 fontSize: 11,
                                             }}
-                                            tickFormatter={
-                                                value =>
-                                                    `₹${value}`
+                                            tickFormatter={(value) =>
+                                                `₹${value}`
                                             }
-                                            axisLine={
-                                                false
-                                            }
-                                            tickLine={
-                                                false
-                                            }
+                                            axisLine={false}
                                         />
 
                                         <Tooltip
@@ -1635,27 +1478,11 @@ function Dashboard() {
                                                 fill: "rgba(255,255,255,0.025)",
                                             }}
                                             contentStyle={{
-                                                background:
-                                                    "#111318",
+                                                background: "#111318",
                                                 border:
                                                     "1px solid rgba(255,255,255,0.1)",
-                                                borderRadius:
-                                                    "14px",
+                                                borderRadius: "14px",
                                             }}
-                                            labelStyle={{
-                                                color:
-                                                    "#a1a1aa",
-                                                marginBottom:
-                                                    "6px",
-                                            }}
-                                            formatter={
-                                                value =>
-                                                    `₹${Number(
-                                                        value
-                                                    ).toLocaleString(
-                                                        "en-IN"
-                                                    )}`
-                                            }
                                         />
 
                                         <Area
@@ -1663,13 +1490,9 @@ function Dashboard() {
                                             dataKey="income"
                                             name="Income"
                                             fill="#34d399"
-                                            fillOpacity={
-                                                0.15
-                                            }
+                                            fillOpacity={0.15}
                                             stroke="#34d399"
-                                            strokeWidth={
-                                                2
-                                            }
+                                            strokeWidth={2}
                                         />
 
                                         <Area
@@ -1677,103 +1500,66 @@ function Dashboard() {
                                             dataKey="expense"
                                             name="Expenses"
                                             fill="#fb7185"
-                                            fillOpacity={
-                                                0.15
-                                            }
+                                            fillOpacity={0.15}
                                             stroke="#fb7185"
-                                            strokeWidth={
-                                                2
-                                            }
+                                            strokeWidth={2}
                                         />
 
                                     </AreaChart>
-
                                 </ResponsiveContainer>
-
                             ) : (
-
                                 <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
-
                                     No transaction data available.
-
                                 </div>
-
                             )}
 
                         </div>
 
-
                         <div className="mt-5 flex items-center gap-5 text-xs">
 
                             <div className="flex items-center gap-2 text-white/40">
-
                                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
-
                                 Income
-
                             </div>
 
-
                             <div className="flex items-center gap-2 text-white/40">
-
                                 <span className="h-2 w-2 rounded-full bg-rose-400" />
-
                                 Expenses
-
                             </div>
 
                         </div>
 
                     </Card>
 
+                    {/* SPENDING BREAKDOWN */}
 
-                    {/* SPENDING */}
+                    <Card className="min-w-0 rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
 
-                    <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
+                        <h3 className="font-semibold text-white">
+                            Spending breakdown
+                        </h3>
 
-                        <div>
+                        <p className="mt-1 text-sm text-white/35">
+                            Where your money goes
+                        </p>
 
-                            <h3 className="font-semibold text-white">
-
-                                Spending breakdown
-
-                            </h3>
-
-
-                            <p className="mt-1 text-sm text-white/35">
-
-                                Where your money goes
-
-                            </p>
-
-                        </div>
-
-
-                        <div className="relative mt-4 h-48">
+                        <div className="relative mt-4 h-[260px] min-w-0 sm:h-[300px] lg:h-[320px]">
 
                             {categoryData.length === 0 ? (
 
-                                <div className="flex h-full min-h-[280px] flex-col items-center justify-center text-center">
+                                <div className="flex h-full min-h-[260px] flex-col items-center justify-center text-center">
 
                                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-2xl">
-
                                         📊
-
                                     </div>
 
-
                                     <h3 className="mt-4 text-sm font-semibold text-white">
-
                                         No spending data yet
-
                                     </h3>
 
-
                                     <p className="mt-1 max-w-xs text-xs text-white/30">
-
                                         Add an expense to see your
                                         spending breakdown.
-
                                     </p>
 
                                 </div>
@@ -1784,35 +1570,21 @@ function Dashboard() {
                                     width="100%"
                                     height="100%"
                                 >
-
                                     <PieChart>
 
                                         <Pie
-                                            data={
-                                                categoryData
-                                            }
+                                            data={categoryData}
                                             dataKey="value"
                                             nameKey="name"
                                             cx="50%"
                                             cy="50%"
-                                            innerRadius={
-                                                58
-                                            }
-                                            outerRadius={
-                                                82
-                                            }
-                                            paddingAngle={
-                                                4
-                                            }
+                                            innerRadius={58}
+                                            outerRadius={82}
+                                            paddingAngle={4}
                                             stroke="none"
                                         >
-
                                             {categoryData.map(
-                                                (
-                                                    entry,
-                                                    index
-                                                ) => (
-
+                                                (entry, index) => (
                                                     <Cell
                                                         key={`${entry.name}-${index}`}
                                                         fill={
@@ -1822,202 +1594,103 @@ function Dashboard() {
                                                                 "#60a5fa",
                                                                 "#fb7185",
                                                                 "#fbbf24",
-                                                            ][
-                                                            index %
-                                                            5
-                                                                ]
+                                                            ][index % 5]
                                                         }
                                                     />
-
                                                 )
                                             )}
-
                                         </Pie>
-
 
                                         <Tooltip
                                             contentStyle={{
-                                                background:
-                                                    "#111318",
+                                                background: "#111318",
                                                 border:
                                                     "1px solid rgba(255,255,255,0.1)",
-                                                borderRadius:
-                                                    "14px",
+                                                borderRadius: "14px",
                                             }}
-                                            formatter={
-                                                value =>
-                                                    `₹${Number(
-                                                        value
-                                                    ).toLocaleString(
-                                                        "en-IN"
-                                                    )}`
-                                            }
                                         />
 
                                     </PieChart>
-
                                 </ResponsiveContainer>
 
                             )}
 
-
                             {categoryData.length > 0 && (
-
                                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
 
                                     <div className="text-center">
 
                                         <p className="text-lg font-bold text-white">
-
                                             ₹
                                             {formatMoney(
-                                                summary?.totalExpense ??
-                                                0
+                                                selectedMonthExpense
                                             )}
-
                                         </p>
 
-
                                         <p className="text-[10px] uppercase tracking-wider text-white/30">
-
                                             spent
-
                                         </p>
 
                                     </div>
 
                                 </div>
-
                             )}
 
                         </div>
 
-
                         <div className="mt-4 space-y-3">
 
                             {categoryData
-                                .slice(
-                                    0,
-                                    4
-                                )
-                                .map(
-                                    (
-                                        category,
-                                        index
-                                    ) => {
+                                .slice(0, 4)
+                                .map((category) => {
 
-                                        const percentage =
-                                            summary &&
-                                            summary.totalExpense >
-                                            0
-                                                ? (
-                                                    (
-                                                        category.value /
-                                                        summary.totalExpense
-                                                    ) *
-                                                    100
-                                                )
-                                                : 0
+                                    const percentage =
+                                        selectedMonthExpense > 0
+                                            ? (category.value /
+                                                selectedMonthExpense) *
+                                            100
+                                            : 0
 
-                                        const categoryColors =
-                                            [
-                                                "#a78bfa",
-                                                "#34d399",
-                                                "#60a5fa",
-                                                "#fb7185",
-                                                "#fbbf24",
-                                            ]
+                                    return (
+                                        <div
+                                            key={category.name}
+                                            className="flex items-center justify-between"
+                                        >
 
-                                        const categoryBackgrounds =
-                                            [
-                                                "rgba(167,139,250,0.1)",
-                                                "rgba(52,211,153,0.1)",
-                                                "rgba(96,165,250,0.1)",
-                                                "rgba(251,113,133,0.1)",
-                                                "rgba(251,191,36,0.1)",
-                                            ]
+                                            <div className="flex min-w-0 items-center gap-3">
 
-                                        return (
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5">
+                                                    <span className="text-violet-400">
+                                                        {getCategoryIcon(
+                                                            category.name
+                                                        )}
+                                                    </span>
+                                                </div>
 
-                                            <div
-                                                key={
-                                                    category.name
-                                                }
-                                                className="flex items-center justify-between"
-                                            >
+                                                <div className="min-w-0">
 
-                                                <div className="flex min-w-0 items-center gap-3">
+                                                    <p className="truncate text-sm font-medium text-white/75">
+                                                        {category.name}
+                                                    </p>
 
-                                                    <div
-                                                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                                                        style={{
-                                                            background:
-                                                                categoryBackgrounds[
-                                                                index %
-                                                                5
-                                                                    ],
-                                                        }}
-                                                    >
-
-                                                        <span
-                                                            style={{
-                                                                color:
-                                                                    categoryColors[
-                                                                    index %
-                                                                    5
-                                                                        ],
-                                                            }}
-                                                        >
-
-                                                            {getCategoryIcon(
-                                                                category.name
-                                                            )}
-
-                                                        </span>
-
-                                                    </div>
-
-
-                                                    <div className="min-w-0">
-
-                                                        <p className="truncate text-sm font-medium text-white/75">
-
-                                                            {
-                                                                category.name
-                                                            }
-
-                                                        </p>
-
-
-                                                        <p className="text-[11px] text-white/30">
-
-                                                            {percentage.toFixed(
-                                                                0
-                                                            )}
-                                                            %
-
-                                                        </p>
-
-                                                    </div>
+                                                    <p className="text-[11px] text-white/30">
+                                                        {percentage.toFixed(0)}%
+                                                    </p>
 
                                                 </div>
 
-
-                                                <p className="shrink-0 text-sm font-semibold text-white">
-
-                                                    ₹
-                                                    {formatMoney(
-                                                        category.value
-                                                    )}
-
-                                                </p>
-
                                             </div>
 
-                                        )
+                                            <p className="shrink-0 text-sm font-semibold text-white">
+                                                ₹
+                                                {formatMoney(
+                                                    category.value
+                                                )}
+                                            </p>
 
-                                    }
-                                )}
+                                        </div>
+                                    )
+                                })}
 
                         </div>
 
@@ -2025,60 +1698,35 @@ function Dashboard() {
 
                 </div>
 
+                {/* INCOME VS EXPENSES */}
 
-                {/* ================================================= */}
-                {/* INCOME / EXPENSE SUMMARY */}
-                {/* ================================================= */}
+                <Card className="min-w-0 rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
 
-                <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
+                    <h3 className="font-semibold text-white">
+                        Income vs expenses
+                    </h3>
 
-                    <div>
+                    <p className="mt-1 text-sm text-white/35">
+                        Total money coming in compared with money going out
+                    </p>
 
-                        <h3 className="font-semibold text-white">
-
-                            Income vs expenses
-
-                        </h3>
-
-
-                        <p className="mt-1 text-sm text-white/35">
-
-                            Total money coming in compared with money going out
-
-                        </p>
-
-                    </div>
-
-
-                    <div className="mt-8 h-[280px]">
+                    <div className="mt-8 h-[260px] min-w-0 sm:h-[300px] lg:h-[320px]">
 
                         {incomeExpenseData.some(
-                            item =>
-                                item.amount > 0
+                            (item) => item.amount > 0
                         ) ? (
 
                             <ResponsiveContainer
                                 width="100%"
                                 height="100%"
                             >
-
                                 <BarChart
-                                    data={
-                                        incomeExpenseData
-                                    }
-                                    margin={{
-                                        top: 5,
-                                        right: 5,
-                                        left: -20,
-                                        bottom: 0,
-                                    }}
+                                    data={incomeExpenseData}
                                 >
 
                                     <CartesianGrid
                                         stroke="rgba(255,255,255,0.06)"
-                                        vertical={
-                                            false
-                                        }
+                                        vertical={false}
                                     />
 
                                     <XAxis
@@ -2087,12 +1735,8 @@ function Dashboard() {
                                             fill: "#71717a",
                                             fontSize: 11,
                                         }}
-                                        axisLine={
-                                            false
-                                        }
-                                        tickLine={
-                                            false
-                                        }
+                                        axisLine={false}
+                                        tickLine={false}
                                     />
 
                                     <YAxis
@@ -2100,62 +1744,36 @@ function Dashboard() {
                                             fill: "#71717a",
                                             fontSize: 11,
                                         }}
-                                        tickFormatter={
-                                            value =>
-                                                `₹${value}`
+                                        tickFormatter={(value) =>
+                                            `₹${value}`
                                         }
-                                        axisLine={
-                                            false
-                                        }
-                                        tickLine={
-                                            false
-                                        }
+                                        axisLine={false}
+                                        tickLine={false}
                                     />
 
                                     <Tooltip
-                                        cursor={{
-                                            fill: "rgba(255,255,255,0.025)",
-                                        }}
                                         contentStyle={{
-                                            background:
-                                                "#111318",
+                                            background: "#111318",
                                             border:
                                                 "1px solid rgba(255,255,255,0.1)",
-                                            borderRadius:
-                                                "14px",
+                                            borderRadius: "14px",
                                         }}
-                                        formatter={
-                                            value =>
-                                                `₹${Number(
-                                                    value
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}`
-                                        }
                                     />
 
                                     <Bar
                                         dataKey="amount"
                                         name="Amount"
                                         fill="#a78bfa"
-                                        radius={[
-                                            6,
-                                            6,
-                                            0,
-                                            0,
-                                        ]}
+                                        radius={[6, 6, 0, 0]}
                                     />
 
                                 </BarChart>
-
                             </ResponsiveContainer>
 
                         ) : (
 
                             <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
-
                                 No income or expense data yet.
-
                             </div>
 
                         )}
@@ -2164,179 +1782,227 @@ function Dashboard() {
 
                 </Card>
 
-
-                {/* ================================================= */}
-                {/* SMART INSIGHTS */}
-                {/* ================================================= */}
+                {/* BUDGET HEALTH */}
 
                 <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
 
-                    <div className="flex items-center gap-3">
-
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
-
-                            ✨
-
-                        </div>
-
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
                         <div>
 
-                            <h2 className="text-sm font-semibold text-white">
+                            <div className="flex items-center gap-2">
 
-                                Smart Insights
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-400">
+                                    Budget health
+                                </p>
 
+                                <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
+                                    {selectedMonthLabel}
+                                </span>
+
+                            </div>
+
+                            <h2 className="mt-2 text-xl font-bold text-white">
+                                Stay within your limits
                             </h2>
 
+                            <p className="mt-1 text-sm text-white/30">
+                                Track your spending against your monthly budgets.
+                            </p>
 
-                            <p className="mt-0.5 text-xs text-white/30">
+                        </div>
 
-                                Based on your transaction activity
+                        <div className="text-left sm:text-right">
 
+                            <p className="text-xs text-white/30">
+                                Overall usage
+                            </p>
+
+                            <p className="mt-1 text-2xl font-bold text-white">
+                                {overallBudgetPercentage.toFixed(0)}%
+                            </p>
+
+                            <p className="mt-1 text-xs text-white/25">
+                                ₹{formatMoney(totalBudgetSpent)} / ₹
+                                {formatMoney(totalBudget)}
                             </p>
 
                         </div>
 
                     </div>
 
+                    <div className="mt-6">
 
-                    <div className="mt-6 grid gap-3 md:grid-cols-3">
+                        <div className="h-2 overflow-hidden rounded-full bg-white/5">
 
+                            <div
+                                className={`h-full rounded-full transition-all duration-700 ${
+                                    overallBudgetPercentage >= 100
+                                        ? "bg-rose-400"
+                                        : overallBudgetPercentage >= 85
+                                            ? "bg-amber-400"
+                                            : "bg-emerald-400"
+                                }`}
+                                style={{
+                                    width: `${displayOverallBudgetPercentage}%`,
+                                }}
+                            />
 
-                        {/* TOP CATEGORY */}
+                        </div>
 
-                        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                    </div>
 
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">
+                    <div className="mt-6 grid gap-3 lg:grid-cols-2">
 
-                                Biggest spending
+                        {budgetsError ? (
 
-                            </p>
+                            <div className="lg:col-span-2 rounded-2xl border border-rose-500/10 bg-rose-500/5 p-8 text-center">
 
-
-                            {insights.topCategory ? (
-
-                                <>
-
-                                    <p className="mt-3 text-lg font-bold text-white">
-
-                                        {
-                                            insights.topCategory
-                                        }
-
-                                    </p>
-
-
-                                    <p className="mt-1 text-xs text-white/35">
-
-                                        ₹
-                                        {insights.topCategoryAmount.toLocaleString(
-                                            "en-IN"
-                                        )}
-
-                                        {" "}
-                                        spent
-
-                                    </p>
-
-                                </>
-
-                            ) : (
-
-                                <p className="mt-3 text-sm text-white/30">
-
-                                    No expense data yet
-
+                                <p className="text-sm text-rose-300">
+                                    Unable to load budgets.
                                 </p>
 
-                            )}
+                                <p className="mt-1 text-xs text-white/25">
+                                    Check that your budget API is running correctly.
+                                </p>
 
-                        </div>
+                            </div>
 
+                        ) : budgetHealth.length === 0 ? (
 
-                        {/* SAVINGS RATE */}
+                            <div className="lg:col-span-2 rounded-2xl border border-dashed border-white/10 p-10 text-center">
 
-                        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-400">
+                                    <Wallet size={20} />
+                                </div>
 
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">
+                                <p className="mt-4 text-sm font-medium text-white">
+                                    No budgets created
+                                </p>
 
-                                Savings rate
+                                <p className="mt-1 text-xs text-white/30">
+                                    Create a budget for {selectedMonthLabel} to start tracking your limits.
+                                </p>
 
-                            </p>
+                            </div>
 
+                        ) : (
 
-                            <p className="mt-3 text-lg font-bold text-emerald-400">
+                            budgetHealth.map((budget) => {
 
-                                {
-                                    insights.savingsRate.toFixed(
-                                        1
+                                const status =
+                                    getBudgetStatus(
+                                        budget.percentage
                                     )
-                                }
-                                %
 
-                            </p>
+                                const categoryName =
+                                    typeof budget.category ===
+                                    "string"
+                                        ? budget.category
+                                        : budget.category &&
+                                        typeof budget.category ===
+                                        "object"
+                                            ? budget.category.name ??
+                                            "Uncategorized"
+                                            : "Uncategorized"
 
+                                return (
+                                    <div
+                                        key={budget.id}
+                                        className="rounded-2xl border border-white/[0.07] bg-black/10 p-5 transition hover:border-white/[0.12]"
+                                    >
 
-                            <p className="mt-1 text-xs text-white/35">
+                                        <div className="flex items-center justify-between gap-4">
 
-                                of your income remains
+                                            <div className="min-w-0">
 
-                            </p>
+                                                <p className="truncate text-sm font-semibold text-white">
+                                                    {categoryName}
+                                                </p>
 
-                        </div>
+                                                <p className="mt-1 text-xs text-white/25">
+                                                    ₹
+                                                    {formatMoney(
+                                                        budget.spent
+                                                    )}{" "}
+                                                    / ₹
+                                                    {formatMoney(
+                                                        budget.limit
+                                                    )}
+                                                </p>
 
+                                            </div>
 
-                        {/* CASH FLOW */}
+                                            <div className="text-right">
 
-                        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                                                <p className="text-sm font-bold text-white">
+                                                    {budget.percentage.toFixed(0)}%
+                                                </p>
 
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">
+                                                <p
+                                                    className={`mt-1 text-xs font-medium ${status.className}`}
+                                                >
+                                                    {status.label}
+                                                </p>
 
-                                Net cash flow
+                                            </div>
 
-                            </p>
+                                        </div>
 
+                                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
 
-                            <p
-                                className={`mt-3 text-lg font-bold ${
-                                    insights.balance >=
-                                    0
-                                        ? "text-emerald-400"
-                                        : "text-rose-400"
-                                }`}
-                            >
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-700 ${
+                                                    budget.percentage >= 100
+                                                        ? "bg-rose-400"
+                                                        : budget.percentage >= 85
+                                                            ? "bg-amber-400"
+                                                            : "bg-emerald-400"
+                                                }`}
+                                                style={{
+                                                    width: `${budget.displayPercentage}%`,
+                                                }}
+                                            />
 
-                                {insights.balance >=
-                                0
-                                    ? "+"
-                                    : "-"}
+                                        </div>
 
-                                ₹
-                                {Math.abs(
-                                    insights.balance
-                                ).toLocaleString(
-                                    "en-IN"
-                                )}
+                                        <div className="mt-3 flex items-center justify-between">
 
-                            </p>
+                                            <span className="text-xs text-white/25">
+                                                Remaining
+                                            </span>
 
+                                            <span
+                                                className={`text-xs font-medium ${
+                                                    budget.remaining < 0
+                                                        ? "text-rose-400"
+                                                        : "text-white/50"
+                                                }`}
+                                            >
+                                                ₹
+                                                {formatMoney(
+                                                    Math.abs(
+                                                        budget.remaining
+                                                    )
+                                                )}
 
-                            <p className="mt-1 text-xs text-white/35">
+                                                {budget.remaining < 0
+                                                    ? " over"
+                                                    : ""}
+                                            </span>
 
-                                after expenses
+                                        </div>
 
-                            </p>
-
-                        </div>
+                                    </div>
+                                )
+                            })
+                        )}
 
                     </div>
 
                 </section>
 
-
-                {/* ================================================= */}
                 {/* FINANCIAL HEALTH */}
-                {/* ================================================= */}
 
                 <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
 
@@ -2345,36 +2011,25 @@ function Dashboard() {
                         <div>
 
                             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/25">
-
                                 Financial health
-
                             </p>
 
-
                             <h2 className="mt-2 text-xl font-bold text-white">
-
-                                {health.label}
-
+                                {financialHealth.label}
                             </h2>
 
                         </div>
-
 
                         <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/10">
 
                             <div className="text-center">
 
                                 <p className="text-xl font-bold text-white">
-
-                                    {health.score}
-
+                                    {financialHealth.score}
                                 </p>
 
-
                                 <p className="text-[9px] uppercase tracking-wider text-white/25">
-
                                     score
-
                                 </p>
 
                             </div>
@@ -2383,7 +2038,6 @@ function Dashboard() {
 
                     </div>
 
-
                     <div className="mt-6">
 
                         <div className="h-2 overflow-hidden rounded-full bg-white/5">
@@ -2391,13 +2045,11 @@ function Dashboard() {
                             <div
                                 className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-400 transition-all duration-700"
                                 style={{
-                                    width:
-                                        `${health.score}%`,
+                                    width: `${financialHealth.score}%`,
                                 }}
                             />
 
                         </div>
-
 
                         <div className="mt-2 flex justify-between text-[10px] text-white/20">
 
@@ -2415,48 +2067,179 @@ function Dashboard() {
 
                 </section>
 
+                {/* RECENT TRANSACTIONS */}
 
-                {/* ================================================= */}
-                {/* FOOTER INSIGHT */}
-                {/* ================================================= */}
+                <Card className="overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
+
+                    <div className="flex flex-col gap-4 border-b border-white/[0.07] p-6 sm:flex-row sm:items-center sm:justify-between">
+
+                        <div>
+
+                            <div className="flex items-center gap-2">
+
+                                <h3 className="font-semibold text-white">
+                                    Recent transactions
+                                </h3>
+
+                                <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/30">
+                                    {monthlyTransactions.length}
+                                </span>
+
+                            </div>
+
+                            <p className="mt-1 text-sm text-white/35">
+                                Your latest financial activity
+                            </p>
+
+                        </div>
+
+                        <button className="w-fit text-sm font-medium text-white/40 transition hover:text-white">
+                            View all →
+                        </button>
+
+                    </div>
+
+                    <div className="divide-y divide-white/[0.05]">
+
+                        {monthlyTransactions.length === 0 ? (
+
+                            <div className="px-6 py-14 text-center">
+
+                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/30">
+                                    <Wallet size={22} />
+                                </div>
+
+                                <p className="mt-4 font-medium text-white">
+                                    No transactions in{" "}
+                                    {selectedMonthLabel}
+                                </p>
+
+                                <p className="mt-1 text-sm text-white/35">
+                                    Add a transaction or select another month.
+                                </p>
+
+                                <Button className="mt-5 rounded-xl bg-white text-black hover:bg-white/90">
+                                    <Plus size={16} />
+                                    Add transaction
+                                </Button>
+
+                            </div>
+
+                        ) : (
+
+                            monthlyTransactions
+                                .slice(0, 5)
+                                .map((transaction) => (
+
+                                    <div
+                                        key={transaction.id}
+                                        className="group flex items-center justify-between gap-4 px-6 py-4 transition-colors duration-200 hover:bg-white/[0.025]"
+                                    >
+
+                                        <div className="flex min-w-0 items-center gap-4">
+
+                                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-white/55">
+                                                {getCategoryIcon(
+                                                    transaction.category
+                                                )}
+                                            </div>
+
+                                            <div className="min-w-0">
+
+                                                <p className="truncate text-sm font-semibold text-white">
+                                                    {transaction.title ||
+                                                        "Untitled transaction"}
+                                                </p>
+
+                                                <p className="mt-1 truncate text-xs text-white/30">
+                                                    {transaction.category ||
+                                                        "Other"}{" "}
+                                                    · {transaction.date}
+                                                </p>
+
+                                            </div>
+
+                                        </div>
+
+                                        <div className="flex shrink-0 items-center gap-4">
+
+                                            <div className="text-right">
+
+                                                <p
+                                                    className={
+                                                        transaction.type ===
+                                                        "INCOME"
+                                                            ? "text-sm font-bold text-emerald-400"
+                                                            : "text-sm font-bold text-white"
+                                                    }
+                                                >
+
+                                                    {transaction.type ===
+                                                    "INCOME"
+                                                        ? "+"
+                                                        : "-"}
+                                                    ₹
+                                                    {formatMoney(
+                                                        Math.abs(
+                                                            Number(
+                                                                transaction.amount
+                                                            ) || 0
+                                                        )
+                                                    )}
+
+                                                </p>
+
+                                                <p className="mt-1 text-[10px] uppercase tracking-wider text-white/20">
+                                                    {transaction.type}
+                                                </p>
+
+                                            </div>
+
+                                            <button
+                                                className="hidden rounded-lg p-2 text-white/20 opacity-0 transition hover:bg-white/5 hover:text-white sm:block sm:group-hover:opacity-100"
+                                                aria-label="Transaction options"
+                                            >
+                                                <MoreHorizontal size={18} />
+                                            </button>
+
+                                        </div>
+
+                                    </div>
+
+                                ))
+
+                        )}
+
+                    </div>
+
+                </Card>
+
+                {/* FOOTER */}
 
                 <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.018] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
 
                     <div className="flex items-center gap-3">
 
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
-
-                            <Sparkles
-                                size={16}
-                            />
-
+                            <Sparkles size={16} />
                         </div>
-
 
                         <div>
 
                             <p className="text-sm font-medium text-white/70">
-
                                 Financial snapshot
-
                             </p>
 
-
                             <p className="text-xs text-white/30">
-
                                 Keep tracking your spending to improve your financial health.
-
                             </p>
 
                         </div>
 
                     </div>
 
-
                     <span className="text-xs font-medium text-white/25">
-
                         FINORA
-
                     </span>
 
                 </div>
@@ -2464,9 +2247,7 @@ function Dashboard() {
             </main>
 
         </div>
-
     )
 }
-
 
 export default Dashboard
