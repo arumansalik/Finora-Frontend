@@ -15,8 +15,11 @@ import {
     ChevronRight,
     X,
 } from "lucide-react"
+import {
+    useDeleteTransaction,
+    useTransactions,
+} from "@/hooks/useTransactions"
 
-import { toast } from "sonner"
 
 import {
     useEffect,
@@ -25,16 +28,13 @@ import {
 } from "react"
 
 import {
-    useMutation,
-    useQuery,
     useQueryClient,
 } from "@tanstack/react-query"
 
 import {
-    deleteTransaction,
-    getTransactions,
     type Transaction,
 } from "@/services/transactionApi"
+
 
 import TransactionDialog from "@/component/transactions/TransactionDialog"
 
@@ -107,63 +107,14 @@ function Transactions() {
         isLoading,
         isError,
         isFetching,
-    } = useQuery({
-        queryKey: ["transactions"],
-        queryFn: getTransactions,
-    })
+    } = useTransactions()
 
 
     // =====================================================
     // DELETE TRANSACTION
     // =====================================================
 
-    const deleteMutation =
-        useMutation({
-
-            mutationFn:
-                deleteTransaction,
-
-            onSuccess: () => {
-
-                queryClient.invalidateQueries({
-                    queryKey: [
-                        "transactions",
-                    ],
-                })
-
-                queryClient.invalidateQueries({
-                    queryKey: [
-                        "summary",
-                    ],
-                })
-
-                queryClient.invalidateQueries({
-                    queryKey: [
-                        "budgets",
-                    ],
-                })
-
-                toast.success(
-                    "Transaction deleted",
-                    {
-                        description:
-                            "The transaction was removed successfully.",
-                    }
-                )
-            },
-
-            onError: () => {
-
-                toast.error(
-                    "Delete failed",
-                    {
-                        description:
-                            "We couldn't delete the transaction. Please try again.",
-                    }
-                )
-            },
-
-        })
+    const deleteMutation = useDeleteTransaction()
 
 
     // =====================================================

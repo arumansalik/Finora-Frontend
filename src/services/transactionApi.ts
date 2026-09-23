@@ -1,5 +1,11 @@
 import api from "@/lib/axios"
 
+// =====================================================
+// API URL
+// =====================================================
+
+const API_URL = "/transactions"
+
 
 // =====================================================
 // TYPES
@@ -39,7 +45,7 @@ export const getTransactions =
 
         const response =
             await api.get<Transaction[]>(
-                "/transactions"
+                API_URL
             )
 
         return response.data
@@ -57,11 +63,11 @@ export const getTransaction =
 
         const response =
             await api.get<Transaction>(
-                `/transactions/${id}`
-            )
+                `${API_URL}/${id}`
+)
 
-        return response.data
-    }
+return response.data
+}
 
 
 // =====================================================
@@ -75,7 +81,7 @@ export const createTransaction =
 
         const response =
             await api.post<Transaction>(
-                "/transactions",
+                API_URL,
                 transaction
             )
 
@@ -95,7 +101,7 @@ export const updateTransaction =
 
         const response =
             await api.put<Transaction>(
-                `/transactions/${id}`,
+                `${API_URL}/${id}`,
                 transaction
             )
 
@@ -113,6 +119,6 @@ export const deleteTransaction =
     ): Promise<void> => {
 
         await api.delete(
-            `/transactions/${id}`
+            `${API_URL}/${id}`
         )
     }
