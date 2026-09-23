@@ -1,19 +1,11 @@
 import {
-    useMemo,
+    useState,
 } from "react"
-
-import {
-    useQuery,
-} from "@tanstack/react-query"
 
 import {
     Area,
     AreaChart,
     CartesianGrid,
-    Cell,
-    Legend,
-    Pie,
-    PieChart,
     ResponsiveContainer,
     Tooltip,
     XAxis,
@@ -21,20 +13,40 @@ import {
 } from "recharts"
 
 import {
-    ArrowDownRight,
-    ArrowUpRight,
-    BarChart3,
-    CalendarDays,
-    CircleDollarSign,
-    Lightbulb,
-    PieChart as PieChartIcon,
+    ChevronLeft,
+    ChevronRight,
+    TrendingDown,
     TrendingUp,
     Wallet,
+    PiggyBank,
+    Receipt,
+    Sparkles,
+    BarChart3,
+    PieChart as PieChartIcon,
+    Download,
 } from "lucide-react"
+import {
+    exportAnalyticsPDF,
+} from "@/utils/exportAnalyticsPDF"
+import {
+    useAnalytics,
+} from "@/hooks/useAnalytics"
 
 import {
-    getTransactions
-} from "@/services/transactionApi"
+    useBudgets,
+} from "@/hooks/useBudget"
+
+import {
+    calculateFinancialHealth,
+} from "@/utils/financialHealth"
+
+import {
+    generateFinancialInsights,
+} from "@/utils/generateFinancialInsights"
+
+import {
+    exportAnalyticsCSV,
+} from "@/utils/exportAnalytics"
 
 import {
     Card,
@@ -45,17 +57,16 @@ import {
 // TYPES
 // =====================================================
 
-interface MonthlyData {
+interface MonthlyAnalytics {
     month: string
     income: number
     expense: number
-    balance: number
+    savings?: number
 }
 
-
-interface CategoryData {
-    name: string
-    value: number
+interface CategoryAnalytics {
+    category: string
+    amount: number
     percentage: number
 }
 
@@ -67,7 +78,6 @@ interface CategoryData {
 const formatCurrency = (
     value: number
 ) => {
-
     return `₹${value.toLocaleString(
         "en-IN",
         {
@@ -75,22 +85,6 @@ const formatCurrency = (
         }
     )}`
 }
-
-
-const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-]
 
 
 // =====================================================
@@ -111,51 +105,74 @@ const CustomTooltip = ({
         return null
     }
 
-
     return (
-
         <div className="rounded-xl border border-white/10 bg-[#111318]/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
 
             <p className="mb-2 text-xs font-medium text-white/40">
-
                 {label}
-
             </p>
-
 
             {payload.map(
                 (
                     item: any
                 ) => (
-
                     <div
-                        key={
-                            item.dataKey
-                        }
+                        key={item.dataKey}
                         className="flex items-center justify-between gap-8 py-0.5"
                     >
-
                         <span className="text-xs text-white/50">
-
                             {item.name}
-
                         </span>
-
 
                         <span className="text-xs font-semibold text-white">
-
                             {formatCurrency(
-                                item.value
+                                Number(
+                                    item.value
+                                )
                             )}
-
                         </span>
-
                     </div>
-
                 )
             )}
 
         </div>
+    )
+}
+
+
+// =====================================================
+// CHANGE BADGE
+// =====================================================
+
+const ChangeBadge = ({
+                         value,
+                         inverse = false,
+                     }: {
+    value: number
+    inverse?: boolean
+}) => {
+
+    const isPositive =
+        inverse
+            ? value <= 0
+            : value >= 0
+
+    return (
+        <span
+            className={`flex items-center gap-1 text-xs font-medium ${
+                isPositive
+                    ? "text-emerald-400"
+                    : "text-rose-400"
+            }`}
+        >
+            {value >= 0 ? (
+                <TrendingUp size={13} />
+            ) : (
+                <TrendingDown size={13} />
+            )}
+
+            {Math.abs(value).toFixed(1)}%
+        </span>
     )
 }
 
@@ -166,414 +183,206 @@ const CustomTooltip = ({
 
 function Analytics() {
 
+    // =====================================================
+    // CURRENT DATE
+    // =====================================================
+
+    const now = new Date()
 
     // =====================================================
-    // FETCH
+    // MONTH STATE
+    // =====================================================
+
+    const [
+        selectedMonth,
+        setSelectedMonth,
+    ] = useState(
+        now.getMonth()
+    )
+
+    const [
+        selectedYear,
+        setSelectedYear,
+    ] = useState(
+        now.getFullYear()
+    )
+
+    // =====================================================
+    // ANALYTICS QUERY
     // =====================================================
 
     const {
-        data: transactions = [],
-        isLoading,
-        isError,
-    } = useQuery({
-        queryKey: [
-            "transactions",
-        ],
-        queryFn:
-        getTransactions,
-    })
-
+        data: analytics,
+        isLoading: analyticsLoading,
+        isError: analyticsError,
+        refetch: refetchAnalytics,
+    } = useAnalytics(
+        selectedMonth + 1,
+        selectedYear
+    )
 
     // =====================================================
-    // MONTHLY DATA
+    // BUDGET QUERY
     // =====================================================
 
-    const monthlyData =
-        useMemo<MonthlyData[]>(
-            () => {
+    const {
+        data: budgets = [],
+        isLoading: budgetsLoading,
+        isError: budgetsError,
+        refetch: refetchBudgets,
+    } = useBudgets(
+        selectedMonth + 1,
+        selectedYear
+    )
 
-                const currentYear =
-                    new Date().getFullYear()
+    // =====================================================
+    // MONTH LABEL
+    // =====================================================
 
-
-                const months =
-                    monthNames.map(
-                        (
-                            month,
-                            index
-                        ) => ({
-
-                            month,
-
-                            income: 0,
-
-                            expense: 0,
-
-                            balance: 0,
-
-                            monthIndex:
-                            index,
-
-                        })
-                    )
-
-
-                transactions.forEach(
-                    (
-                        transaction
-                    ) => {
-
-                        const date =
-                            new Date(
-                                transaction.date
-                            )
-
-
-                        if (
-                            date.getFullYear() !==
-                            currentYear
-                        ) {
-                            return
-                        }
-
-
-                        const monthIndex =
-                            date.getMonth()
-
-
-                        if (
-                            transaction.type ===
-                            "INCOME"
-                        ) {
-
-                            months[
-                                monthIndex
-                                ].income +=
-                                transaction.amount
-
-                        } else {
-
-                            months[
-                                monthIndex
-                                ].expense +=
-                                transaction.amount
-                        }
-
-                    }
-                )
-
-
-                months.forEach(
-                    (
-                        month
-                    ) => {
-
-                        month.balance =
-                            month.income -
-                            month.expense
-
-                    }
-                )
-
-
-                return months.map(
-                    ({
-                         month,
-                         income,
-                         expense,
-                         balance,
-                     }) => ({
-
-                        month,
-
-                        income,
-
-                        expense,
-
-                        balance,
-
-                    })
-                )
-
-            },
-            [
-                transactions,
-            ]
+    const monthLabel =
+        new Date(
+            selectedYear,
+            selectedMonth,
+            1
+        ).toLocaleDateString(
+            "en-IN",
+            {
+                month: "long",
+                year: "numeric",
+            }
         )
 
-
     // =====================================================
-    // TOTALS
+    // EXPORT CSV
     // =====================================================
 
-    const totals =
-        useMemo(() => {
+    const handleExportCSV = () => {
 
-            let income = 0
+        if (!analytics) {
+            return
+        }
 
-            let expense = 0
+        exportAnalyticsCSV(
+            analytics,
+            selectedMonth + 1,
+            selectedYear
+        )
+    }
 
+    const handleExportPDF = () => {
 
-            transactions.forEach(
-                (
-                    transaction
-                ) => {
+        if (!analytics) {
+            return
+        }
 
-                    if (
-                        transaction.type ===
-                        "INCOME"
-                    ) {
-
-                        income +=
-                            transaction.amount
-
-                    } else {
-
-                        expense +=
-                            transaction.amount
-
-                    }
-
-                }
+        const insightTexts =
+            insights.map(
+                insight =>
+                    `${insight.title}: ${insight.description}`
             )
 
-
-            return {
-
-                income,
-
-                expense,
-
-                balance:
-                    income -
-                    expense,
-
-            }
-
-        }, [
-            transactions,
-        ])
-
-
-    // =====================================================
-    // CATEGORY DATA
-    // =====================================================
-
-    const categoryData =
-        useMemo<CategoryData[]>(
-            () => {
-
-                const totals =
-                    new Map<
-                        string,
-                        number
-                    >()
-
-
-                transactions
-                    .filter(
-                        (transaction) =>
-                            transaction.type ===
-                            "EXPENSE"
-                    )
-                    .forEach(
-                        (transaction) => {
-
-                            const category =
-                                transaction.category ||
-                                "Other"
-
-
-                            totals.set(
-                                category,
-                                (
-                                    totals.get(
-                                        category
-                                    ) ?? 0
-                                ) +
-                                transaction.amount
-                            )
-                        }
-                    )
-
-
-                const total =
-                    Array.from(
-                        totals.values()
-                    ).reduce(
-                        (
-                            sum,
-                            value
-                        ) =>
-                            sum + value,
-                        0
-                    )
-
-
-                return Array.from(
-                    totals.entries()
-                )
-                    .map(
-                        ([
-                             name,
-                             value,
-                         ]) => ({
-
-                            name,
-
-                            value,
-
-                            percentage:
-                                total > 0
-                                    ? (
-                                        value /
-                                        total
-                                    ) *
-                                    100
-                                    : 0,
-
-                        })
-                    )
-                    .sort(
-                        (
-                            a,
-                            b
-                        ) =>
-                            b.value -
-                            a.value
-                    )
-
-            },
-            [transactions]
+        exportAnalyticsPDF(
+            analytics,
+            selectedMonth + 1,
+            selectedYear,
+            insightTexts
         )
-
-
-    // =====================================================
-    // TOP CATEGORY
-    // =====================================================
-
-    const topCategory =
-        categoryData[0]
-
+    }
 
     // =====================================================
-    // SAVING RATE
+    // PREVIOUS MONTH
     // =====================================================
 
-    const savingRate =
-        totals.income > 0
-            ? (
-                totals.balance /
-                totals.income
-            ) *
-            100
-            : 0
+    const previousMonth = () => {
 
+        if (selectedMonth === 0) {
+
+            setSelectedMonth(11)
+
+            setSelectedYear(
+                year => year - 1
+            )
+
+        } else {
+
+            setSelectedMonth(
+                month => month - 1
+            )
+        }
+    }
 
     // =====================================================
-    // INSIGHT
+    // NEXT MONTH
     // =====================================================
 
-    const insight =
-        useMemo(() => {
+    const nextMonth = () => {
 
-            if (
-                transactions.length ===
-                0
-            ) {
+        if (selectedMonth === 11) {
 
-                return "Add a few transactions to start receiving personalized financial insights."
+            setSelectedMonth(0)
 
-            }
+            setSelectedYear(
+                year => year + 1
+            )
 
+        } else {
 
-            if (
-                totals.income ===
-                0
-            ) {
-
-                return "Add your income records to calculate your savings rate and cash-flow health."
-
-            }
-
-
-            if (
-                totals.expense >
-                totals.income
-            ) {
-
-                return "Your expenses are currently higher than your income. Consider reviewing your largest spending categories."
-
-            }
-
-
-            if (
-                savingRate >=
-                30
-            ) {
-
-                return "Excellent work. You're currently keeping more than 30% of your income after expenses."
-
-            }
-
-
-            if (
-                savingRate >=
-                15
-            ) {
-
-                return "Your cash flow is positive. Look for opportunities to gradually increase your savings rate."
-
-            }
-
-
-            return "Your cash flow is positive, but your savings rate is relatively low. Review your largest expense categories."
-
-        }, [
-            transactions,
-            totals,
-            savingRate,
-        ])
-
+            setSelectedMonth(
+                month => month + 1
+            )
+        }
+    }
 
     // =====================================================
     // LOADING
     // =====================================================
 
-    if (isLoading) {
+    if (
+        analyticsLoading ||
+        budgetsLoading
+    ) {
 
         return (
+            <div className="min-h-screen bg-[#08090d] p-6 text-white lg:p-10">
 
-            <div className="min-h-screen bg-[#07080c] p-6 text-white lg:p-10">
+                <div className="mx-auto max-w-7xl animate-pulse space-y-6">
 
-                <div className="mx-auto max-w-7xl space-y-6">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
-                    <div className="h-10 w-64 animate-pulse rounded-lg bg-white/5" />
+                        <div className="space-y-3">
+                            <div className="h-3 w-36 rounded bg-white/10" />
+                            <div className="h-9 w-48 rounded bg-white/10" />
+                            <div className="h-4 w-80 rounded bg-white/5" />
+                        </div>
+
+                        <div className="h-10 w-40 rounded-xl bg-white/5" />
+
+                    </div>
 
                     <div className="grid gap-4 md:grid-cols-3">
 
                         {Array.from({
                             length: 3,
                         }).map(
-                            (
-                                _,
-                                index
-                            ) => (
-
+                            (_, index) => (
                                 <Card
-                                    key={
-                                        index
-                                    }
-                                    className="h-32 animate-pulse border-white/10 bg-white/[0.025]"
+                                    key={index}
+                                    className="h-36 rounded-3xl border-white/10 bg-white/[0.025]"
                                 />
-
                             )
                         )}
 
                     </div>
 
+                    <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
 
-                    <Card className="h-96 animate-pulse border-white/10 bg-white/[0.025]" />
+                        <Card className="h-[400px] rounded-3xl border-white/10 bg-white/[0.025]" />
+
+                        <Card className="h-[400px] rounded-3xl border-white/10 bg-white/[0.025]" />
+
+                    </div>
+
+                    <Card className="h-48 rounded-3xl border-white/10 bg-white/[0.025]" />
 
                 </div>
 
@@ -581,35 +390,45 @@ function Analytics() {
         )
     }
 
-
     // =====================================================
     // ERROR
     // =====================================================
 
-    if (isError) {
+    if (
+        analyticsError ||
+        budgetsError ||
+        !analytics
+    ) {
 
         return (
+            <div className="flex min-h-screen items-center justify-center bg-[#08090d] p-6 text-white">
 
-            <div className="min-h-screen bg-[#07080c] p-6 text-white lg:p-10">
+                <Card className="w-full max-w-md rounded-3xl border-white/10 bg-white/[0.025] p-8 text-center">
 
-                <Card className="mx-auto max-w-xl border-white/10 bg-white/[0.025] p-10 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-400/10 text-rose-400">
 
-                    <BarChart3
-                        className="mx-auto text-rose-400"
-                        size={35}
-                    />
+                        <BarChart3 size={24} />
 
-                    <h2 className="mt-5 text-xl font-semibold">
+                    </div>
 
-                        Analytics unavailable
-
+                    <h2 className="mt-5 text-lg font-semibold">
+                        Unable to load analytics
                     </h2>
 
-                    <p className="mt-2 text-sm text-white/35">
-
-                        We couldn't load your transaction data.
-
+                    <p className="mt-2 text-sm leading-6 text-white/30">
+                        We couldn't retrieve your analytics data.
+                        Please try again.
                     </p>
+
+                    <button
+                        onClick={() => {
+                            refetchAnalytics()
+                            refetchBudgets()
+                        }}
+                        className="mt-5 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90"
+                    >
+                        Try again
+                    </button>
 
                 </Card>
 
@@ -617,15 +436,127 @@ function Analytics() {
         )
     }
 
+    // =====================================================
+    // SAFE DATA
+    // =====================================================
+
+    const monthlyTrend =
+        (
+            analytics.monthlyTrend ?? []
+        ) as MonthlyAnalytics[]
+
+    const categoryBreakdown =
+        (
+            analytics.categoryBreakdown ?? []
+        ) as CategoryAnalytics[]
+
+    // =====================================================
+    // NUMERIC VALUES
+    // =====================================================
+
+    const income =
+        Number(
+            analytics.income
+        ) || 0
+
+    const expense =
+        Number(
+            analytics.expense
+        ) || 0
+
+    const savings =
+        Number(
+            analytics.savings
+        ) || 0
+
+    const savingsRate =
+        Number(
+            analytics.savingsRate
+        ) || 0
+
+    const incomeChange =
+        Number(
+            analytics.incomeChange
+        ) || 0
+
+    const expenseChange =
+        Number(
+            analytics.expenseChange
+        ) || 0
+
+    // =====================================================
+    // TOP CATEGORY
+    // =====================================================
+
+    const topCategory =
+        categoryBreakdown.length > 0
+            ? categoryBreakdown[0]
+            : null
+
+    // =====================================================
+    // BUDGET CALCULATION
+    // =====================================================
+
+    const totalBudget =
+        budgets.reduce(
+            (
+                total,
+                budget
+            ) =>
+                total +
+                (
+                    Number(
+                        budget.budget
+                    ) || 0
+                ),
+            0
+        )
+
+    const totalBudgetSpent =
+        budgets.reduce(
+            (
+                total,
+                budget
+            ) =>
+                total +
+                (
+                    Number(
+                        budget.spent
+                    ) || 0
+                ),
+            0
+        )
+
+    const overallBudgetPercentage =
+        totalBudget > 0
+            ? (
+            totalBudgetSpent /
+            totalBudget
+        ) * 100
+            : 0
+
+    // =====================================================
+    // FINANCIAL HEALTH
+    // =====================================================
+
+    const health =
+        calculateFinancialHealth(
+            savingsRate,
+            expenseChange,
+            overallBudgetPercentage
+        )
+
+    const insights =
+        generateFinancialInsights(
+            analytics
+        )
 
     // =====================================================
     // MAIN
     // =====================================================
 
     return (
-
-        <div className="min-h-screen bg-[#07080c] text-white">
-
+        <div className="min-h-screen bg-[#08090d] text-white">
 
             {/* ================================================= */}
             {/* HEADER */}
@@ -635,36 +566,91 @@ function Analytics() {
 
                 <div className="mx-auto max-w-7xl">
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
-                        <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
+                        {/* TITLE */}
 
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-400">
+                        <div>
 
-                            Financial intelligence
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-400">
+                                Financial intelligence
+                            </p>
 
-                        </p>
+                            <h1 className="mt-2 text-3xl font-bold tracking-tight">
+                                Analytics
+                            </h1>
+
+                            <p className="mt-1 text-sm text-white/35">
+                                Understand your spending, savings and cash flow.
+                            </p>
+
+                        </div>
+
+                        {/* ACTIONS */}
+
+                        <div className="flex flex-wrap items-center gap-2">
+
+                            <button
+                                onClick={handleExportCSV}
+                                disabled={!analytics}
+                                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-white/70 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <Download size={16}/>
+
+                                Export CSV
+                            </button>
+
+                            <button
+                                onClick={handleExportPDF}
+                                className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90"
+                            >
+                                <Download size={16}/>
+
+                                PDF
+                            </button>
+
+                            {/* MONTH SELECTOR */}
+
+                            <div
+                                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] p-1">
+
+                                <button
+                                    onClick={
+                                        previousMonth
+                                    }
+                                    className="rounded-lg p-2 text-white/30 transition hover:bg-white/5 hover:text-white"
+                                    aria-label="Previous month"
+                                >
+                                    <ChevronLeft
+                                        size={16}
+                                    />
+                                </button>
+
+                                <span className="min-w-32 px-2 text-center text-xs font-medium text-white/60">
+                                    {monthLabel}
+                                </span>
+
+                                <button
+                                    onClick={
+                                        nextMonth
+                                    }
+                                    className="rounded-lg p-2 text-white/30 transition hover:bg-white/5 hover:text-white"
+                                    aria-label="Next month"
+                                >
+                                    <ChevronRight
+                                        size={16}
+                                    />
+                                </button>
+
+                            </div>
+
+                        </div>
 
                     </div>
-
-
-                    <h1 className="mt-2 text-3xl font-bold tracking-tight">
-
-                        Analytics
-
-                    </h1>
-
-
-                    <p className="mt-1 text-sm text-white/35">
-
-                        Understand where your money goes and how your finances are evolving.
-
-                    </p>
 
                 </div>
 
             </header>
-
 
             {/* ================================================= */}
             {/* MAIN */}
@@ -672,173 +658,155 @@ function Analytics() {
 
             <main className="mx-auto max-w-7xl space-y-6 p-6 lg:p-10">
 
-
                 {/* ================================================= */}
-                {/* SUMMARY CARDS */}
+                {/* SUMMARY */}
                 {/* ================================================= */}
 
                 <div className="grid gap-4 md:grid-cols-3">
 
-
                     {/* INCOME */}
 
-                    <Card className="relative overflow-hidden rounded-2xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
+                    <Card className="relative overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
 
                         <div className="flex items-start justify-between">
 
                             <div>
 
                                 <p className="text-xs font-medium uppercase tracking-[0.12em] text-white/30">
-
-                                    Total income
-
+                                    Income
                                 </p>
 
-
-                                <p className="mt-3 text-2xl font-bold text-white">
-
+                                <p className="mt-3 text-2xl font-bold">
                                     {formatCurrency(
-                                        totals.income
+                                        income
                                     )}
-
                                 </p>
 
                             </div>
-
 
                             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-400">
 
-                                <ArrowUpRight
-                                    size={20}
+                                <TrendingUp
+                                    size={19}
                                 />
 
                             </div>
 
                         </div>
 
+                        <div className="mt-5 flex items-center justify-between">
 
-                        <div className="mt-4 flex items-center gap-2 text-xs text-emerald-400">
+                            <span className="text-xs text-white/25">
+                                vs previous month
+                            </span>
 
-                            <TrendingUp
-                                size={13}
+                            <ChangeBadge
+                                value={
+                                    incomeChange
+                                }
                             />
-
-                            Money received
 
                         </div>
 
                     </Card>
-
 
                     {/* EXPENSE */}
 
-                    <Card className="relative overflow-hidden rounded-2xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
+                    <Card className="relative overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
 
                         <div className="flex items-start justify-between">
 
                             <div>
 
                                 <p className="text-xs font-medium uppercase tracking-[0.12em] text-white/30">
-
-                                    Total expenses
-
+                                    Expenses
                                 </p>
 
-
-                                <p className="mt-3 text-2xl font-bold text-white">
-
+                                <p className="mt-3 text-2xl font-bold">
                                     {formatCurrency(
-                                        totals.expense
+                                        expense
                                     )}
-
                                 </p>
 
                             </div>
 
-
                             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-400/10 text-rose-400">
 
-                                <ArrowDownRight
-                                    size={20}
+                                <TrendingDown
+                                    size={19}
                                 />
 
                             </div>
 
                         </div>
 
+                        <div className="mt-5 flex items-center justify-between">
 
-                        <div className="mt-4 flex items-center gap-2 text-xs text-rose-400">
+                            <span className="text-xs text-white/25">
+                                vs previous month
+                            </span>
 
-                            <TrendingUp
-                                size={13}
+                            <ChangeBadge
+                                value={
+                                    expenseChange
+                                }
+                                inverse
                             />
-
-                            Money spent
 
                         </div>
 
                     </Card>
 
+                    {/* SAVINGS */}
 
-                    {/* BALANCE */}
-
-                    <Card className="relative overflow-hidden rounded-2xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
+                    <Card className="relative overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
 
                         <div className="flex items-start justify-between">
 
                             <div>
 
                                 <p className="text-xs font-medium uppercase tracking-[0.12em] text-white/30">
-
-                                    Net balance
-
+                                    Savings
                                 </p>
-
 
                                 <p
                                     className={`mt-3 text-2xl font-bold ${
-                                        totals.balance >=
-                                        0
-                                            ? "text-white"
+                                        savings >= 0
+                                            ? "text-emerald-400"
                                             : "text-rose-400"
                                     }`}
                                 >
-
+                                    {savings < 0 ? "-" : ""}
                                     {formatCurrency(
-                                        totals.balance
+                                        Math.abs(
+                                            savings
+                                        )
                                     )}
-
                                 </p>
 
                             </div>
 
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-400/10 text-violet-300">
 
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-400/10 text-violet-400">
-
-                                <Wallet
-                                    size={20}
+                                <PiggyBank
+                                    size={19}
                                 />
 
                             </div>
 
                         </div>
 
+                        <div className="mt-5 flex items-center justify-between">
 
-                        <div className="mt-4 flex items-center gap-2 text-xs text-white/30">
+                            <span className="text-xs text-white/25">
+                                Savings rate
+                            </span>
 
-                            <CircleDollarSign
-                                size={13}
-                            />
-
-                            Savings rate{" "}
-
-                            <span className="text-white/60">
-
-                                {savingRate.toFixed(
+                            <span className="text-xs font-semibold text-violet-300">
+                                {savingsRate.toFixed(
                                     1
                                 )}
                                 %
-
                             </span>
 
                         </div>
@@ -847,349 +815,192 @@ function Analytics() {
 
                 </div>
 
-
                 {/* ================================================= */}
-                {/* CASH FLOW CHART */}
-                {/* ================================================= */}
-
-                <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl lg:p-7">
-
-                    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-
-                        <div>
-
-                            <div className="flex items-center gap-2">
-
-                                <TrendingUp
-                                    size={17}
-                                    className="text-violet-400"
-                                />
-
-                                <h2 className="font-semibold text-white">
-
-                                    Cash flow
-
-                                </h2>
-
-                            </div>
-
-
-                            <p className="mt-1 text-xs text-white/30">
-
-                                Income and expenses across {new Date().getFullYear()}
-
-                            </p>
-
-                        </div>
-
-
-                        <div className="flex items-center gap-4 text-xs">
-
-                            <div className="flex items-center gap-2">
-
-                                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-
-                                <span className="text-white/35">
-
-                                    Income
-
-                                </span>
-
-                            </div>
-
-
-                            <div className="flex items-center gap-2">
-
-                                <span className="h-2 w-2 rounded-full bg-rose-400" />
-
-                                <span className="text-white/35">
-
-                                    Expenses
-
-                                </span>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <div className="mt-8 h-[330px] w-full">
-
-                        <ResponsiveContainer
-                            width="100%"
-                            height="100%"
-                        >
-
-                            <AreaChart
-                                data={
-                                    monthlyData
-                                }
-                                margin={{
-                                    top: 10,
-                                    right: 10,
-                                    left: -15,
-                                    bottom: 0,
-                                }}
-                            >
-
-                                <defs>
-
-                                    <linearGradient
-                                        id="incomeGradient"
-                                        x1="0"
-                                        y1="0"
-                                        x2="0"
-                                        y2="1"
-                                    >
-
-                                        <stop
-                                            offset="0%"
-                                            stopColor="#34d399"
-                                            stopOpacity={
-                                                0.25
-                                            }
-                                        />
-
-                                        <stop
-                                            offset="100%"
-                                            stopColor="#34d399"
-                                            stopOpacity={
-                                                0
-                                            }
-                                        />
-
-                                    </linearGradient>
-
-
-                                    <linearGradient
-                                        id="expenseGradient"
-                                        x1="0"
-                                        y1="0"
-                                        x2="0"
-                                        y2="1"
-                                    >
-
-                                        <stop
-                                            offset="0%"
-                                            stopColor="#fb7185"
-                                            stopOpacity={
-                                                0.2
-                                            }
-                                        />
-
-                                        <stop
-                                            offset="100%"
-                                            stopColor="#fb7185"
-                                            stopOpacity={
-                                                0
-                                            }
-                                        />
-
-                                    </linearGradient>
-
-                                </defs>
-
-
-                                <CartesianGrid
-                                    stroke="rgba(255,255,255,0.05)"
-                                    vertical={
-                                        false
-                                    }
-                                />
-
-
-                                <XAxis
-                                    dataKey="month"
-                                    axisLine={
-                                        false
-                                    }
-                                    tickLine={
-                                        false
-                                    }
-                                    tick={{
-                                        fill: "rgba(255,255,255,0.3)",
-                                        fontSize: 11,
-                                    }}
-                                />
-
-
-                                <YAxis
-                                    axisLine={
-                                        false
-                                    }
-                                    tickLine={
-                                        false
-                                    }
-                                    tick={{
-                                        fill: "rgba(255,255,255,0.3)",
-                                        fontSize: 11,
-                                    }}
-                                    tickFormatter={(
-                                        value
-                                    ) =>
-                                        `₹${value / 1000}k`
-                                    }
-                                />
-
-
-                                <Tooltip
-                                    content={
-                                        <CustomTooltip />
-                                    }
-                                />
-
-
-                                <Area
-                                    type="monotone"
-                                    dataKey="income"
-                                    name="Income"
-                                    stroke="#34d399"
-                                    strokeWidth={
-                                        2
-                                    }
-                                    fill="url(#incomeGradient)"
-                                />
-
-
-                                <Area
-                                    type="monotone"
-                                    dataKey="expense"
-                                    name="Expenses"
-                                    stroke="#fb7185"
-                                    strokeWidth={
-                                        2
-                                    }
-                                    fill="url(#expenseGradient)"
-                                />
-
-                            </AreaChart>
-
-                        </ResponsiveContainer>
-
-                    </div>
-
-                </Card>
-
-
-                {/* ================================================= */}
-                {/* LOWER CHARTS */}
+                {/* CASH FLOW + CATEGORY */}
                 {/* ================================================= */}
 
-                <div className="grid gap-6 lg:grid-cols-2">
+                <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
 
-
-                    {/* ================================================= */}
-                    {/* CATEGORY PIE */}
-                    {/* ================================================= */}
+                    {/* CASH FLOW */}
 
                     <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl lg:p-7">
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
 
-                            <PieChartIcon
-                                size={17}
-                                className="text-violet-400"
-                            />
+                            <div>
 
-                            <h2 className="font-semibold">
+                                <div className="flex items-center gap-2">
 
-                                Spending by category
-
-                            </h2>
-
-                        </div>
-
-
-                        <p className="mt-1 text-xs text-white/30">
-
-                            Where your expenses are going
-
-                        </p>
-
-
-                        {categoryData.length ===
-                        0 ? (
-
-                            <div className="flex h-[300px] items-center justify-center text-center">
-
-                                <div>
-
-                                    <PieChartIcon
-                                        size={30}
-                                        className="mx-auto text-white/15"
+                                    <TrendingUp
+                                        size={17}
+                                        className="text-violet-400"
                                     />
 
-                                    <p className="mt-3 text-sm text-white/30">
+                                    <h2 className="font-semibold">
+                                        Cash flow
+                                    </h2>
 
-                                        No expense data yet
+                                </div>
 
-                                    </p>
+                                <p className="mt-1 text-xs text-white/30">
+                                    Income and expenses over the recent months
+                                </p>
+
+                            </div>
+
+                            <div className="flex items-center gap-4 text-xs">
+
+                                <div className="flex items-center gap-2">
+
+                                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
+
+                                    <span className="text-white/35">
+                                        Income
+                                    </span>
+
+                                </div>
+
+                                <div className="flex items-center gap-2">
+
+                                    <span className="h-2 w-2 rounded-full bg-rose-400" />
+
+                                    <span className="text-white/35">
+                                        Expenses
+                                    </span>
 
                                 </div>
 
                             </div>
 
-                        ) : (
+                        </div>
 
-                            <div className="mt-5 h-[300px]">
+                        <div className="mt-8 h-[320px] w-full min-w-0">
+
+                            {monthlyTrend.length === 0 ? (
+
+                                <div className="flex h-full items-center justify-center text-sm text-white/25">
+                                    No monthly trend data available.
+                                </div>
+
+                            ) : (
 
                                 <ResponsiveContainer
                                     width="100%"
                                     height="100%"
                                 >
 
-                                    <PieChart>
+                                    <AreaChart
+                                        data={
+                                            monthlyTrend
+                                        }
+                                        margin={{
+                                            top: 10,
+                                            right: 10,
+                                            left: -15,
+                                            bottom: 0,
+                                        }}
+                                    >
 
-                                        <Pie
-                                            data={
-                                                categoryData
-                                            }
-                                            dataKey="value"
-                                            nameKey="name"
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={
-                                                72
-                                            }
-                                            outerRadius={
-                                                105
-                                            }
-                                            paddingAngle={
-                                                3
-                                            }
-                                        >
+                                        <defs>
 
-                                            {categoryData.map(
-                                                (
-                                                    _,
-                                                    index
-                                                ) => (
+                                            <linearGradient
+                                                id="analyticsIncomeGradient"
+                                                x1="0"
+                                                y1="0"
+                                                x2="0"
+                                                y2="1"
+                                            >
 
-                                                    <Cell
-                                                        key={
-                                                            index
-                                                        }
-                                                        fill={[
-                                                            "#8b5cf6",
-                                                            "#34d399",
-                                                            "#60a5fa",
-                                                            "#fb7185",
-                                                            "#fbbf24",
-                                                            "#22d3ee",
-                                                            "#f472b6",
-                                                        ][
-                                                        index %
-                                                        7
-                                                            ]}
-                                                    />
+                                                <stop
+                                                    offset="0%"
+                                                    stopColor="#34d399"
+                                                    stopOpacity={
+                                                        0.25
+                                                    }
+                                                />
 
-                                                )
-                                            )}
+                                                <stop
+                                                    offset="100%"
+                                                    stopColor="#34d399"
+                                                    stopOpacity={
+                                                        0
+                                                    }
+                                                />
 
-                                        </Pie>
+                                            </linearGradient>
 
+                                            <linearGradient
+                                                id="analyticsExpenseGradient"
+                                                x1="0"
+                                                y1="0"
+                                                x2="0"
+                                                y2="1"
+                                            >
+
+                                                <stop
+                                                    offset="0%"
+                                                    stopColor="#fb7185"
+                                                    stopOpacity={
+                                                        0.2
+                                                    }
+                                                />
+
+                                                <stop
+                                                    offset="100%"
+                                                    stopColor="#fb7185"
+                                                    stopOpacity={
+                                                        0
+                                                    }
+                                                />
+
+                                            </linearGradient>
+
+                                        </defs>
+
+                                        <CartesianGrid
+                                            stroke="rgba(255,255,255,0.05)"
+                                            vertical={false}
+                                        />
+
+                                        <XAxis
+                                            dataKey="month"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{
+                                                fill: "rgba(255,255,255,0.3)",
+                                                fontSize: 11,
+                                            }}
+                                        />
+
+                                        <YAxis
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{
+                                                fill: "rgba(255,255,255,0.3)",
+                                                fontSize: 11,
+                                            }}
+                                            tickFormatter={(
+                                                value
+                                            ) => {
+
+                                                const numericValue =
+                                                    Number(
+                                                        value
+                                                    )
+
+                                                if (
+                                                    numericValue >=
+                                                    1000
+                                                ) {
+                                                    return `₹${(
+                                                        numericValue /
+                                                        1000
+                                                    ).toFixed(0)}k`
+                                                }
+
+                                                return `₹${numericValue}`
+                                            }}
+                                        />
 
                                         <Tooltip
                                             content={
@@ -1197,131 +1008,152 @@ function Analytics() {
                                             }
                                         />
 
-
-                                        <Legend
-                                            verticalAlign="bottom"
-                                            iconType="circle"
-                                            wrapperStyle={{
-                                                fontSize: "11px",
-                                                color: "rgba(255,255,255,0.4)",
-                                            }}
+                                        <Area
+                                            type="monotone"
+                                            dataKey="income"
+                                            name="Income"
+                                            stroke="#34d399"
+                                            strokeWidth={2}
+                                            fill="url(#analyticsIncomeGradient)"
                                         />
 
-                                    </PieChart>
+                                        <Area
+                                            type="monotone"
+                                            dataKey="expense"
+                                            name="Expenses"
+                                            stroke="#fb7185"
+                                            strokeWidth={2}
+                                            fill="url(#analyticsExpenseGradient)"
+                                        />
+
+                                    </AreaChart>
 
                                 </ResponsiveContainer>
 
-                            </div>
-
-                        )}
-
-                    </Card>
-
-
-                    {/* ================================================= */}
-                    {/* CATEGORY RANKING */}
-                    {/* ================================================= */}
-
-                    <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl lg:p-7">
-
-                        <div className="flex items-center gap-2">
-
-                            <BarChart3
-                                size={17}
-                                className="text-violet-400"
-                            />
-
-                            <h2 className="font-semibold">
-
-                                Spending breakdown
-
-                            </h2>
+                            )}
 
                         </div>
 
+                    </Card>
 
-                        <p className="mt-1 text-xs text-white/30">
+                    {/* CATEGORY */}
 
-                            Your largest expense categories
+                    <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl lg:p-7">
 
-                        </p>
+                        <div>
 
+                            <div className="flex items-center gap-2">
+
+                                <PieChartIcon
+                                    size={17}
+                                    className="text-violet-400"
+                                />
+
+                                <h2 className="font-semibold">
+                                    Category breakdown
+                                </h2>
+
+                            </div>
+
+                            <p className="mt-1 text-xs text-white/30">
+                                Where your expenses are going
+                            </p>
+
+                        </div>
 
                         <div className="mt-6 space-y-5">
 
-                            {categoryData.length ===
-                            0 ? (
+                            {categoryBreakdown.length === 0 ? (
 
-                                <div className="py-16 text-center text-sm text-white/30">
+                                <div className="flex h-[300px] items-center justify-center text-center">
 
-                                    No expense data yet.
+                                    <div>
+
+                                        <PieChartIcon
+                                            size={30}
+                                            className="mx-auto text-white/15"
+                                        />
+
+                                        <p className="mt-3 text-sm text-white/30">
+                                            No expenses recorded.
+                                        </p>
+
+                                    </div>
 
                                 </div>
 
                             ) : (
 
-                                categoryData
-                                    .slice(
-                                        0,
-                                        6
-                                    )
+                                categoryBreakdown
+                                    .slice(0, 6)
                                     .map(
                                         (
                                             category
-                                        ) => (
+                                        ) => {
 
-                                            <div
-                                                key={
-                                                    category.name
-                                                }
-                                            >
+                                            const percentage =
+                                                Number(
+                                                    category.percentage
+                                                ) || 0
 
-                                                <div className="mb-2 flex items-center justify-between">
+                                            return (
 
-                                                    <span className="text-sm text-white/60">
+                                                <div
+                                                    key={
+                                                        category.category
+                                                    }
+                                                >
 
-                                                        {
-                                                            category.name
-                                                        }
+                                                    <div className="flex items-center justify-between">
 
-                                                    </span>
+                                                        <span className="text-sm font-medium text-white/70">
+                                                            {
+                                                                category.category
+                                                            }
+                                                        </span>
 
+                                                        <span className="text-xs font-medium text-white/40">
+                                                            {formatCurrency(
+                                                                Number(
+                                                                    category.amount
+                                                                ) || 0
+                                                            )}
+                                                        </span>
 
-                                                    <span className="text-sm font-semibold text-white">
+                                                    </div>
 
-                                                        {formatCurrency(
-                                                            category.value
-                                                        )}
+                                                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/5">
 
-                                                    </span>
+                                                        <div
+                                                            className="h-full rounded-full bg-violet-400 transition-all duration-700"
+                                                            style={{
+                                                                width: `${Math.min(
+                                                                    100,
+                                                                    Math.max(
+                                                                        0,
+                                                                        percentage
+                                                                    )
+                                                                )}%`,
+                                                            }}
+                                                        />
+
+                                                    </div>
+
+                                                    <div className="mt-1 flex justify-end">
+
+                                                        <span className="text-[10px] text-white/20">
+                                                            {percentage.toFixed(
+                                                                1
+                                                            )}
+                                                            %
+                                                        </span>
+
+                                                    </div>
 
                                                 </div>
 
-
-                                                <div className="h-1.5 overflow-hidden rounded-full bg-white/5">
-
-                                                    <div
-                                                        className="h-full rounded-full bg-violet-400 transition-all duration-700"
-                                                        style={{
-                                                            width: `${category.percentage}%`,
-                                                        }}
-                                                    />
-
-                                                </div>
-
-
-                                                <p className="mt-1 text-[10px] text-white/20">
-
-                                                    {category.percentage.toFixed(
-                                                        1
-                                                    )}
-                                                    % of expenses
-
-                                                </p>
-
-                                            </div>
-
-                                        )
+                                            )
+                                        }
                                     )
 
                             )}
@@ -1332,6 +1164,205 @@ function Analytics() {
 
                 </div>
 
+                {/* ================================================= */}
+                {/* FINANCIAL HEALTH */}
+                {/* ================================================= */}
+
+                <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl lg:p-7">
+
+                    <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+
+                        <div>
+
+                            <div className="flex items-center gap-3">
+
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-400/10">
+
+                                    <Sparkles
+                                        size={18}
+                                        className="text-violet-300"
+                                    />
+
+                                </div>
+
+                                <div>
+
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-400">
+                                        Financial health
+                                    </p>
+
+                                    <h2 className="mt-1 text-lg font-bold">
+                                        {health.label}
+                                    </h2>
+
+                                </div>
+
+                            </div>
+
+                            <p className="mt-4 max-w-xl text-sm leading-6 text-white/35">
+                                Your score combines savings rate,
+                                spending trends and budget usage
+                                to provide a simple snapshot of
+                                your current financial position.
+                            </p>
+
+                            <div className="mt-5 flex flex-wrap gap-2">
+
+                                <span className="rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-1.5 text-[10px] text-white/30">
+                                    Savings{" "}
+                                    <span className="text-white/60">
+                                        {savingsRate.toFixed(1)}%
+                                    </span>
+                                </span>
+
+                                <span className="rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-1.5 text-[10px] text-white/30">
+                                    Expense trend{" "}
+                                    <span className="text-white/60">
+                                        {expenseChange >= 0
+                                            ? "+"
+                                            : ""}
+                                        {expenseChange.toFixed(1)}%
+                                    </span>
+                                </span>
+
+                                <span className="rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-1.5 text-[10px] text-white/30">
+                                    Budget{" "}
+                                    <span className="text-white/60">
+                                        {overallBudgetPercentage.toFixed(1)}%
+                                    </span>
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                        <div className="shrink-0 text-left md:text-right">
+
+                            <p className="text-5xl font-bold tracking-tight">
+
+                                {health.score}
+
+                                <span className="text-xl text-white/20">
+                                    /100
+                                </span>
+
+                            </p>
+
+                            <p className="mt-1 text-xs text-white/25">
+                                financial health score
+                            </p>
+
+                            <div className="mt-4 h-2 w-48 overflow-hidden rounded-full bg-white/5 md:ml-auto">
+
+                                <div
+                                    className={`h-full rounded-full transition-all duration-700 ${
+                                        health.score >= 85
+                                            ? "bg-emerald-400"
+                                            : health.score >= 70
+                                                ? "bg-violet-400"
+                                                : health.score >= 50
+                                                    ? "bg-amber-400"
+                                                    : "bg-rose-400"
+                                    }`}
+                                    style={{
+                                        width: `${Math.min(
+                                            100,
+                                            Math.max(
+                                                0,
+                                                health.score
+                                            )
+                                        )}%`,
+                                    }}
+                                />
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </Card>
+
+                {/* ================================================= */}
+                {/* SMART INSIGHTS */}
+                {/* ================================================= */}
+
+                <Card className="rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl lg:p-7">
+
+                    <div className="flex items-center gap-3">
+
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-400/10">
+
+                            <Sparkles
+                                size={18}
+                                className="text-violet-300"
+                            />
+
+                        </div>
+
+                        <div>
+
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-400">
+                                Smart insights
+                            </p>
+
+                            <h2 className="mt-1 text-lg font-bold">
+                                What your money is telling you
+                            </h2>
+
+                        </div>
+
+                    </div>
+
+                    <div className="mt-6 grid gap-3 md:grid-cols-2">
+
+                        {insights.map(
+                            (
+                                insight,
+                                index
+                            ) => (
+
+                                <div
+                                    key={index}
+                                    className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4"
+                                >
+
+                                    <div className="flex items-start gap-3">
+
+                                        <div
+                                            className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
+                                                insight.type ===
+                                                "positive"
+                                                    ? "bg-emerald-400"
+                                                    : insight.type ===
+                                                    "warning"
+                                                        ? "bg-amber-400"
+                                                        : "bg-violet-400"
+                                            }`}
+                                        />
+
+                                        <div>
+
+                                            <p className="text-sm font-semibold">
+                                                {insight.title}
+                                            </p>
+
+                                            <p className="mt-1 text-xs leading-5 text-white/35">
+                                                {insight.description}
+                                            </p>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            )
+                        )}
+
+                    </div>
+
+                </Card>
 
                 {/* ================================================= */}
                 {/* INSIGHT */}
@@ -1343,25 +1374,26 @@ function Analytics() {
 
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-violet-400/10 bg-violet-400/10 text-violet-400">
 
-                            <Lightbulb
-                                size={20}
-                            />
+                            <Sparkles size={19} />
 
                         </div>
 
-
-                        <div>
+                        <div className="min-w-0">
 
                             <p className="text-xs font-semibold uppercase tracking-[0.15em] text-violet-400">
-
                                 Financial insight
-
                             </p>
 
+                            <p className="mt-2 text-sm leading-6 text-white/55">
 
-                            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/55">
-
-                                {insight}
+                                {savings < 0
+                                    ? "Your expenses are currently higher than your income. Consider reviewing your largest spending categories and reducing non-essential expenses."
+                                    : savingsRate >= 30
+                                        ? "Excellent work. You're currently saving more than 30% of your income. Keep maintaining this healthy cash-flow pattern."
+                                        : savingsRate >= 15
+                                            ? "Your cash flow is positive. Look for opportunities to gradually increase your savings rate."
+                                            : "Your cash flow is positive, but your savings rate is relatively low. Review your largest expense categories to identify opportunities to save more."
+                                }
 
                             </p>
 
@@ -1371,101 +1403,86 @@ function Analytics() {
 
                 </Card>
 
-
                 {/* ================================================= */}
                 {/* QUICK METRICS */}
                 {/* ================================================= */}
 
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
+                    {/* MONTHLY INCOME */}
 
                     <Card className="rounded-2xl border-white/[0.08] bg-white/[0.025] p-5">
 
                         <div className="flex items-center gap-3">
 
-                            <CalendarDays
+                            <Receipt
                                 size={17}
                                 className="text-white/30"
                             />
 
                             <span className="text-xs text-white/30">
-
-                                Transactions
-
+                                Monthly income
                             </span>
 
                         </div>
 
-
                         <p className="mt-3 text-xl font-bold">
-
-                            {
-                                transactions.length
-                            }
-
-                        </p>
-
-                    </Card>
-
-
-                    <Card className="rounded-2xl border-white/[0.08] bg-white/[0.025] p-5">
-
-                        <div className="flex items-center gap-3">
-
-                            <PieChartIcon
-                                size={17}
-                                className="text-white/30"
-                            />
-
-                            <span className="text-xs text-white/30">
-
-                                Categories
-
-                            </span>
-
-                        </div>
-
-
-                        <p className="mt-3 text-xl font-bold">
-
-                            {
-                                categoryData.length
-                            }
-
-                        </p>
-
-                    </Card>
-
-
-                    <Card className="rounded-2xl border-white/[0.08] bg-white/[0.025] p-5">
-
-                        <div className="flex items-center gap-3">
-
-                            <CircleDollarSign
-                                size={17}
-                                className="text-white/30"
-                            />
-
-                            <span className="text-xs text-white/30">
-
-                                Savings rate
-
-                            </span>
-
-                        </div>
-
-
-                        <p className="mt-3 text-xl font-bold">
-
-                            {savingRate.toFixed(
-                                1
+                            {formatCurrency(
+                                income
                             )}
-                            %
-
                         </p>
 
                     </Card>
 
+                    {/* MONTHLY EXPENSE */}
+
+                    <Card className="rounded-2xl border-white/[0.08] bg-white/[0.025] p-5">
+
+                        <div className="flex items-center gap-3">
+
+                            <TrendingDown
+                                size={17}
+                                className="text-white/30"
+                            />
+
+                            <span className="text-xs text-white/30">
+                                Monthly expenses
+                            </span>
+
+                        </div>
+
+                        <p className="mt-3 text-xl font-bold">
+                            {formatCurrency(
+                                expense
+                            )}
+                        </p>
+
+                    </Card>
+
+                    {/* SAVINGS RATE */}
+
+                    <Card className="rounded-2xl border-white/[0.08] bg-white/[0.025] p-5">
+
+                        <div className="flex items-center gap-3">
+
+                            <PiggyBank
+                                size={17}
+                                className="text-white/30"
+                            />
+
+                            <span className="text-xs text-white/30">
+                                Savings rate
+                            </span>
+
+                        </div>
+
+                        <p className="mt-3 text-xl font-bold">
+                            {savingsRate.toFixed(1)}%
+                        </p>
+
+                    </Card>
+
+                    {/* TOP CATEGORY */}
 
                     <Card className="rounded-2xl border-white/[0.08] bg-white/[0.025] p-5">
 
@@ -1477,19 +1494,16 @@ function Analytics() {
                             />
 
                             <span className="text-xs text-white/30">
-
                                 Top category
-
                             </span>
 
                         </div>
 
-
                         <p className="mt-3 truncate text-xl font-bold">
-
-                            {topCategory?.name ??
-                                "—"}
-
+                            {
+                                topCategory?.category ??
+                                "—"
+                            }
                         </p>
 
                     </Card>
@@ -1501,6 +1515,5 @@ function Analytics() {
         </div>
     )
 }
-
 
 export default Analytics
