@@ -37,8 +37,8 @@ const moneyNavigation = [
         icon: WalletCards,
     },
     {
-        name: "Goals",
-        path: "/goals",
+        name: "Savings Goals",
+        path: "/savings-goals",
         icon: Target,
     },
     {
