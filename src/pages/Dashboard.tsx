@@ -17,6 +17,8 @@ import {
     RefreshCw,
 } from "lucide-react"
 
+
+import FinancialInsights from "../component/insights/FinancialInsights"
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 
@@ -1782,6 +1784,8 @@ function Dashboard() {
 
                 </Card>
 
+                <FinancialInsights />
+
                 {/* BUDGET HEALTH */}
 
                 <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
@@ -1992,6 +1996,9 @@ function Dashboard() {
                                             </span>
 
                                         </div>
+
+
+
 
                                     </div>
                                 )
