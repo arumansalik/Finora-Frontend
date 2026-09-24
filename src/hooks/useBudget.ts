@@ -28,6 +28,7 @@ export const useBudgets = (
 ) => {
 
     return useQuery<Budget[]>({
+
         queryKey:
             queryKeys.budgets(
                 month,
@@ -59,17 +60,26 @@ export const useCreateBudget = () => {
     const queryClient =
         useQueryClient()
 
+
     return useMutation({
+
         mutationFn:
-            (data: BudgetRequest) =>
-                createBudget(data),
+            (
+                data: BudgetRequest
+            ) =>
+                createBudget(
+                    data
+                ),
 
-        onSuccess: async () => {
+        onSuccess:
+            async () => {
 
-            await queryClient.invalidateQueries({
-                queryKey: ["budgets"],
-            })
-        },
+                await queryClient.invalidateQueries({
+                    queryKey: [
+                        "budgets",
+                    ],
+                })
+            },
     })
 }
 
@@ -83,7 +93,9 @@ export const useUpdateBudget = () => {
     const queryClient =
         useQueryClient()
 
+
     return useMutation({
+
         mutationFn:
             ({
                  id,
@@ -97,12 +109,15 @@ export const useUpdateBudget = () => {
                     data
                 ),
 
-        onSuccess: async () => {
+        onSuccess:
+            async () => {
 
-            await queryClient.invalidateQueries({
-                queryKey: ["budgets"],
-            })
-        },
+                await queryClient.invalidateQueries({
+                    queryKey: [
+                        "budgets",
+                    ],
+                })
+            },
     })
 }
 
@@ -116,16 +131,25 @@ export const useDeleteBudget = () => {
     const queryClient =
         useQueryClient()
 
+
     return useMutation({
+
         mutationFn:
-            (id: number) =>
-                deleteBudget(id),
+            (
+                id: number
+            ) =>
+                deleteBudget(
+                    id
+                ),
 
-        onSuccess: async () => {
+        onSuccess:
+            async () => {
 
-            await queryClient.invalidateQueries({
-                queryKey: ["budgets"],
-            })
-        },
+                await queryClient.invalidateQueries({
+                    queryKey: [
+                        "budgets",
+                    ],
+                })
+            },
     })
 }
