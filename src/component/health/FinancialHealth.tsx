@@ -9,7 +9,7 @@ import {
 import { useFinancialHealth } from "../../hooks/useFinancialHealth";
 import FinancialHealthGauge from "./FinancialHealthGauge";
 import HealthFactorCard from "./HealthFactorCard";
-
+import { useNavigate } from "react-router-dom";
 const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-IN", {
         style: "currency",
@@ -24,6 +24,8 @@ export default function FinancialHealth() {
         isError,
         refetch,
     } = useFinancialHealth();
+
+    const navigate = useNavigate();
 
     if (isLoading) {
         return (
@@ -87,17 +89,20 @@ export default function FinancialHealth() {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-zinc-500">
-                    <Info className="h-3.5 w-3.5" />
-                    Updated from your latest transactions
-                </div>
+                <button
+                    onClick={() => navigate("/financial-health")}
+                    className="text-left text-xs font-medium text-violet-400 transition hover:text-violet-300 sm:text-right"
+                >
+                    View details →
+                </button>
             </div>
 
             {/* Main section */}
             <div className="grid gap-5 xl:grid-cols-[360px_1fr]">
 
                 {/* Score */}
-                <div className="relative overflow-hidden rounded-3xl border border-white/[0.06] bg-gradient-to-br from-violet-500/[0.10] via-white/[0.025] to-white/[0.02] p-6">
+                <div
+                    className="relative overflow-hidden rounded-3xl border border-white/[0.06] bg-gradient-to-br from-violet-500/[0.10] via-white/[0.025] to-white/[0.02] p-6">
 
                     <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
 
