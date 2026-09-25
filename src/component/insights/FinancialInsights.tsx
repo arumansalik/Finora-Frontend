@@ -2,7 +2,6 @@ import {
     AlertCircle,
     ArrowRight,
     Lightbulb,
-    Loader2,
 } from "lucide-react";
 
 import {
