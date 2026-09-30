@@ -17,8 +17,6 @@ import {
     RefreshCw,
 } from "lucide-react"
 
-
-import FinancialInsights from "../component/insights/FinancialInsights"
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 
@@ -858,1401 +856,254 @@ function Dashboard() {
     // =====================================================
     // DASHBOARD
     // =====================================================
-
     return (
-        <div className="min-h-screen bg-[#07080c] text-white">
+        <div className="min-h-screen overflow-x-hidden bg-[#05060a] text-white">
+            {/* Ambient background */}
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+                <div className="absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full bg-violet-600/[0.08] blur-[120px]" />
+                <div className="absolute right-[-180px] top-[18%] h-[520px] w-[520px] rounded-full bg-indigo-500/[0.06] blur-[130px]" />
+                <div className="absolute bottom-[-220px] left-[28%] h-[500px] w-[500px] rounded-full bg-emerald-500/[0.035] blur-[120px]" />
+            </div>
 
-            {/* HEADER */}
-
-            <header className="sticky top-0 z-20 border-b border-white/[0.07] bg-[#07080c]/85 backdrop-blur-xl">
-                <div className="flex flex-col gap-5 px-6 py-6 sm:flex-row sm:items-center sm:justify-between lg:px-10">
-
-                    <div>
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/35">
-                            {currentDate}
-                        </p>
-
-                        <h1 className="mt-2 text-2xl font-bold tracking-[-0.02em] text-white sm:text-3xl">
-                            Good evening 👋
-                        </h1>
-
-                        <p className="mt-1 text-sm text-white/40">
-                            Here's your financial overview.
-                        </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-
-                        {/* REFRESH */}
-
-                        <button
-                            onClick={refreshDashboard}
-                            disabled={dashboardLoading}
-                            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs font-medium text-white/40 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                            <RefreshCw
-                                size={14}
-                                className={
-                                    dashboardLoading
-                                        ? "animate-spin"
-                                        : ""
-                                }
-                            />
-
-                            Refresh
-                        </button>
-
-                        {/* ADD TRANSACTION */}
-
-                        <Button className="group w-fit rounded-xl bg-white px-4 text-black shadow-lg shadow-white/5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/90 hover:shadow-xl">
-                            <Plus
-                                size={17}
-                                className="transition-transform duration-300 group-hover:rotate-90"
-                            />
-                            Add transaction
-                        </Button>
-
-                    </div>
-                </div>
-            </header>
-
-            {/* MAIN */}
-
-            <main className="space-y-6 p-6 lg:p-10">
-
-                {/* MONTH SELECTOR */}
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/30">
-                            Selected period
-                        </p>
-
-                        <h2 className="mt-1 text-xl font-bold text-white">
-                            {selectedMonthLabel}
-                        </h2>
-
-                        <p className="mt-1 text-xs text-white/30">
-                            {monthlyTransactions.length} transaction
-                            {monthlyTransactions.length === 1
-                                ? ""
-                                : "s"} this month
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-
-                        <button
-                            onClick={goToPreviousMonth}
-                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/50 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
-                            aria-label="Previous month"
-                        >
-                            <ArrowLeft size={17} />
-                        </button>
-
-                        <div className="min-w-[150px] rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-center text-sm font-medium text-white/70">
-                            {selectedMonthLabel}
-                        </div>
-
-                        <button
-                            onClick={goToNextMonth}
-                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/50 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
-                            aria-label="Next month"
-                        >
-                            <ArrowRight size={17} />
-                        </button>
-
-                    </div>
-                </div>
-
-                {/* BALANCE HERO */}
-
-                <Card className="group relative overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
-
-                    <div className="pointer-events-none absolute -right-32 -top-32 h-80 w-80 rounded-full bg-violet-500/10 blur-3xl transition duration-700 group-hover:bg-violet-500/15" />
-
-                    <div className="pointer-events-none absolute -bottom-40 -left-20 h-72 w-72 rounded-full bg-emerald-500/5 blur-3xl" />
-
-                    <div className="relative p-7 sm:p-8">
-
-                        <div className="flex items-start justify-between">
-
-                            <div>
-
-                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">
-                                    Total balance
-                                </p>
-
-                                {/* ANIMATED BALANCE */}
-
-                                <div className="mt-4 text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl">
-                                    <AnimatedNumber
-                                        value={
-                                            Number(summary?.balance) || 0
-                                        }
-                                        prefix="₹"
-                                    />
-                                </div>
-
-                                <div className="mt-4 flex flex-wrap items-center gap-2">
-
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/10 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
-                                        <TrendingUp size={13} />
-                                        Healthy
-                                    </span>
-
-                                    <span className="text-xs text-white/30">
-                                        Current available balance
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-                            <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-3.5 text-white shadow-xl shadow-black/10">
-                                <Wallet size={22} />
-                            </div>
-
-                        </div>
-
-                        {/* MINI CASH FLOW CHART */}
-
-                        <div className="mt-10 h-28 min-w-0 sm:h-32">
-
-                            {cashFlowData.length > 0 ? (
-                                <ResponsiveContainer
-                                    width="100%"
-                                    height="100%"
-                                >
-                                    <BarChart
-                                        data={cashFlowData}
-                                        barGap={3}
-                                    >
-                                        <XAxis
-                                            dataKey="date"
-                                            hide
-                                        />
-
-                                        <YAxis hide />
-
-                                        <Tooltip
-                                            cursor={{
-                                                fill: "rgba(255,255,255,0.03)",
-                                            }}
-                                            contentStyle={{
-                                                background: "#111318",
-                                                border:
-                                                    "1px solid rgba(255,255,255,0.1)",
-                                                borderRadius: "14px",
-                                                color: "white",
-                                            }}
-                                        />
-
-                                        <Bar
-                                            dataKey="income"
-                                            name="Income"
-                                            fill="#34d399"
-                                            radius={[6, 6, 2, 2]}
-                                        />
-
-                                        <Bar
-                                            dataKey="expense"
-                                            name="Expenses"
-                                            fill="#fb7185"
-                                            radius={[6, 6, 2, 2]}
-                                        />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
-                                    No cash-flow data for{" "}
-                                    {selectedMonthLabel}.
-                                </div>
-                            )}
-
-                        </div>
-
-                    </div>
-
-                </Card>
-
-                {/* METRICS */}
-
-                <div className="grid gap-4 md:grid-cols-3">
-
-                    {/* INCOME */}
-
-                    <Card className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
-
-                        <div className="flex items-center justify-between">
-
-                            <p className="text-sm font-medium text-white/45">
-                                Income
+            <div className="relative mx-auto w-full max-w-[1700px] px-4 pb-10 sm:px-6 lg:px-8 xl:px-10">
+                {/* TOP BAR */}
+                <header className="sticky top-0 z-30 -mx-4 border-b border-white/[0.06] bg-[#05060a]/80 px-4 backdrop-blur-2xl sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10">
+                    <div className="mx-auto flex min-h-[78px] max-w-[1700px] items-center justify-between gap-4">
+                        <div className="min-w-0">
+                            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.24em] text-violet-300/60">
+                                {currentDate}
                             </p>
-
-                            <div className="rounded-xl border border-emerald-400/10 bg-emerald-400/10 p-2.5 text-emerald-400">
-                                <ArrowUpRight size={17} />
-                            </div>
-
+                            <h1 className="mt-1 truncate text-2xl font-bold tracking-[-0.04em] text-white sm:text-[28px]">
+                                Good evening <span className="ml-1">👋</span>
+                            </h1>
                         </div>
 
-                        <div className="mt-5 text-2xl font-bold tracking-tight text-white">
-                            <AnimatedNumber
-                                value={selectedMonthIncome}
-                                prefix="₹"
-                            />
-                        </div>
-
-                        <div className="mt-2 flex items-center gap-1.5">
-                            <TrendingUp
-                                size={13}
-                                className="text-emerald-400"
-                            />
-
-                            <p className="text-xs text-emerald-400">
-                                {selectedMonthLabel}
-                            </p>
-                        </div>
-
-                    </Card>
-
-                    {/* EXPENSE */}
-
-                    <Card className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
-
-                        <div className="flex items-center justify-between">
-
-                            <p className="text-sm font-medium text-white/45">
-                                Expenses
-                            </p>
-
-                            <div className="rounded-xl border border-rose-400/10 bg-rose-400/10 p-2.5 text-rose-400">
-                                <ArrowDownRight size={17} />
-                            </div>
-
-                        </div>
-
-                        <div className="mt-5 text-2xl font-bold tracking-tight text-white">
-                            <AnimatedNumber
-                                value={selectedMonthExpense}
-                                prefix="₹"
-                            />
-                        </div>
-
-                        <div className="mt-2 flex items-center gap-1.5">
-                            <TrendingDown
-                                size={13}
-                                className="text-rose-400"
-                            />
-
-                            <p className="text-xs text-rose-400">
-                                {selectedMonthLabel}
-                            </p>
-                        </div>
-
-                    </Card>
-
-                    {/* SAVINGS */}
-
-                    <Card className="group rounded-2xl border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/[0.04]">
-
-                        <div className="flex items-center justify-between">
-
-                            <p className="text-sm font-medium text-white/45">
-                                Savings rate
-                            </p>
-
-                            <div className="rounded-xl border border-violet-400/10 bg-violet-400/10 p-2.5 text-violet-400">
-                                <Sparkles size={17} />
-                            </div>
-
-                        </div>
-
-                        <p className="mt-5 text-2xl font-bold tracking-tight text-white">
-                            {monthlySavingsRate.toFixed(1)}%
-                        </p>
-
-                        <p className="mt-2 text-xs text-white/35">
-                            {monthlySavingsRate >= 50
-                                ? "Excellent savings"
-                                : monthlySavingsRate >= 30
-                                    ? "Healthy savings"
-                                    : monthlySavingsRate >= 15
-                                        ? "Good progress"
-                                        : "Needs attention"}
-                        </p>
-
-                    </Card>
-
-                </div>
-
-                {/* MONTH COMPARISON */}
-
-                <div className="grid gap-4 md:grid-cols-3">
-
-                    {/* EXPENSE COMPARISON */}
-
-                    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
-
-                        <div className="flex items-start justify-between">
-
-                            <div>
-
-                                <p className="text-xs text-white/30">
-                                    Expenses
-                                </p>
-
-                                <p className="mt-2 text-xl font-bold">
-                                    ₹
-                                    {comparison.current.expense.toLocaleString(
-                                        "en-IN"
-                                    )}
-                                </p>
-
-                            </div>
-
-                            <span
-                                className={`rounded-lg px-2.5 py-1 text-xs font-medium ${
-                                    comparison.expenseChange > 0
-                                        ? "bg-rose-400/10 text-rose-400"
-                                        : comparison.expenseChange < 0
-                                            ? "bg-emerald-400/10 text-emerald-400"
-                                            : "bg-white/5 text-white/40"
-                                }`}
+                        <div className="flex shrink-0 items-center gap-2">
+                            <button
+                                onClick={refreshDashboard}
+                                disabled={dashboardLoading}
+                                className="hidden h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3.5 text-xs font-medium text-white/45 transition hover:border-white/15 hover:bg-white/[0.05] hover:text-white disabled:opacity-40 sm:flex"
                             >
-                                {formatChange(
-                                    comparison.expenseChange
-                                )}
-                            </span>
-
+                                <RefreshCw size={14} className={dashboardLoading ? "animate-spin" : ""} />
+                                Refresh
+                            </button>
+                            <Button className="h-10 rounded-xl bg-white px-4 text-xs font-semibold text-black shadow-lg shadow-white/[0.04] transition hover:-translate-y-0.5 hover:bg-white/90">
+                                <Plus size={15} className="mr-1.5" />
+                                Add transaction
+                            </Button>
                         </div>
-
-                        <p className="mt-3 text-xs text-white/20">
-                            Compared with {previousMonthLabel}
-                        </p>
-
                     </div>
+                </header>
 
-                    {/* INCOME COMPARISON */}
-
-                    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
-
-                        <div className="flex items-start justify-between">
-
-                            <div>
-
-                                <p className="text-xs text-white/30">
-                                    Income
-                                </p>
-
-                                <p className="mt-2 text-xl font-bold">
-                                    ₹
-                                    {comparison.current.income.toLocaleString(
-                                        "en-IN"
-                                    )}
-                                </p>
-
-                            </div>
-
-                            <span
-                                className={`rounded-lg px-2.5 py-1 text-xs font-medium ${
-                                    comparison.incomeChange > 0
-                                        ? "bg-emerald-400/10 text-emerald-400"
-                                        : comparison.incomeChange < 0
-                                            ? "bg-rose-400/10 text-rose-400"
-                                            : "bg-white/5 text-white/40"
-                                }`}
-                            >
-                                {formatChange(
-                                    comparison.incomeChange
-                                )}
-                            </span>
-
-                        </div>
-
-                        <p className="mt-3 text-xs text-white/20">
-                            Compared with {previousMonthLabel}
-                        </p>
-
-                    </div>
-
-                    {/* SAVINGS COMPARISON */}
-
-                    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
-
-                        <div className="flex items-start justify-between">
-
-                            <div>
-
-                                <p className="text-xs text-white/30">
-                                    {savingsLabel}
-                                </p>
-
-                                <p
-                                    className={`mt-2 text-xl font-bold ${
-                                        comparison.current.savings >= 0
-                                            ? "text-emerald-400"
-                                            : "text-rose-400"
-                                    }`}
-                                >
-                                    ₹
-                                    {Math.abs(
-                                        comparison.current.savings
-                                    ).toLocaleString("en-IN")}
-                                </p>
-
-                            </div>
-
-                            <span
-                                className={`rounded-lg px-2.5 py-1 text-xs font-medium ${
-                                    comparison.savingsChange > 0
-                                        ? "bg-emerald-400/10 text-emerald-400"
-                                        : comparison.savingsChange < 0
-                                            ? "bg-rose-400/10 text-rose-400"
-                                            : "bg-white/5 text-white/40"
-                                }`}
-                            >
-                                {formatChange(
-                                    comparison.savingsChange
-                                )}
-                            </span>
-
-                        </div>
-
-                        <p className="mt-3 text-xs text-white/20">
-                            Compared with {previousMonthLabel}
-                        </p>
-
-                    </div>
-
-                </div>
-
-                {/* FINANCIAL INTELLIGENCE */}
-
-                <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
-
-                    <div className="flex items-center gap-3">
-
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-400/10">
-                            <Sparkles
-                                size={17}
-                                className="text-violet-300"
-                            />
-                        </div>
-
+                <main className="space-y-6 pt-7 lg:space-y-7 lg:pt-9">
+                    {/* MONTH CONTROL */}
+                    <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                         <div>
-
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-400">
-                                Financial intelligence
-                            </p>
-
-                            <h2 className="mt-1 text-lg font-bold">
-                                What's changing?
-                            </h2>
-
-                        </div>
-
-                    </div>
-
-                    <div className="mt-5 grid gap-3 md:grid-cols-3">
-
-                        <div className="rounded-2xl border border-white/[0.06] bg-black/10 p-5">
-
-                            <p className="text-xs text-white/25">
-                                Spending trend
-                            </p>
-
-                            <p className="mt-2 text-sm leading-6 text-white/60">
-                                {expenseInsight}
-                            </p>
-
-                        </div>
-
-                        <div className="rounded-2xl border border-white/[0.06] bg-black/10 p-5">
-
-                            <p className="text-xs text-white/25">
-                                Savings trend
-                            </p>
-
-                            <p className="mt-2 text-sm leading-6 text-white/60">
-                                {savingsInsight}
-                            </p>
-
-                        </div>
-
-                        <div className="rounded-2xl border border-white/[0.06] bg-black/10 p-5">
-
-                            <p className="text-xs text-white/25">
-                                Biggest spending category
-                            </p>
-
-                            {biggestCategory ? (
-                                <>
-                                    <p className="mt-2 text-lg font-bold">
-                                        {biggestCategory.category}
-                                    </p>
-
-                                    <p className="mt-1 text-sm text-white/35">
-                                        ₹
-                                        {formatMoney(
-                                            biggestCategory.amount
-                                        )}{" "}
-                                        spent this month
-                                    </p>
-                                </>
-                            ) : (
-                                <p className="mt-2 text-sm text-white/30">
-                                    No expense data yet
-                                </p>
-                            )}
-
-                        </div>
-
-                    </div>
-
-                </section>
-
-                {/* ANALYTICS */}
-
-                <div className="grid min-w-0 gap-6 xl:grid-cols-3">
-
-                    {/* CASH FLOW */}
-
-                    <Card className="min-w-0 rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl xl:col-span-2">
-
-                        <h3 className="font-semibold text-white">
-                            Cash flow
-                        </h3>
-
-                        <p className="mt-1 text-sm text-white/35">
-                            Income vs expenses over time
-                        </p>
-
-                        {/* RESPONSIVE CHART HEIGHT */}
-
-                        <div className="mt-8 h-[260px] min-w-0 sm:h-[300px] lg:h-[320px]">
-
-                            {cashFlowData.length > 0 ? (
-                                <ResponsiveContainer
-                                    width="100%"
-                                    height="100%"
-                                >
-                                    <AreaChart
-                                        data={cashFlowData}
-                                        margin={{
-                                            top: 5,
-                                            right: 5,
-                                            left: -20,
-                                            bottom: 0,
-                                        }}
-                                    >
-                                        <CartesianGrid
-                                            stroke="rgba(255,255,255,0.06)"
-                                            vertical={false}
-                                        />
-
-                                        <XAxis
-                                            dataKey="date"
-                                            tick={{
-                                                fill: "#71717a",
-                                                fontSize: 11,
-                                            }}
-                                            tickFormatter={(value) =>
-                                                String(value).slice(5)
-                                            }
-                                            axisLine={false}
-                                            tickLine={false}
-                                        />
-
-                                        <YAxis
-                                            tick={{
-                                                fill: "#71717a",
-                                                fontSize: 11,
-                                            }}
-                                            tickFormatter={(value) =>
-                                                `₹${value}`
-                                            }
-                                            axisLine={false}
-                                        />
-
-                                        <Tooltip
-                                            cursor={{
-                                                fill: "rgba(255,255,255,0.025)",
-                                            }}
-                                            contentStyle={{
-                                                background: "#111318",
-                                                border:
-                                                    "1px solid rgba(255,255,255,0.1)",
-                                                borderRadius: "14px",
-                                            }}
-                                        />
-
-                                        <Area
-                                            type="monotone"
-                                            dataKey="income"
-                                            name="Income"
-                                            fill="#34d399"
-                                            fillOpacity={0.15}
-                                            stroke="#34d399"
-                                            strokeWidth={2}
-                                        />
-
-                                        <Area
-                                            type="monotone"
-                                            dataKey="expense"
-                                            name="Expenses"
-                                            fill="#fb7185"
-                                            fillOpacity={0.15}
-                                            stroke="#fb7185"
-                                            strokeWidth={2}
-                                        />
-
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
-                                    No transaction data available.
-                                </div>
-                            )}
-
-                        </div>
-
-                        <div className="mt-5 flex items-center gap-5 text-xs">
-
-                            <div className="flex items-center gap-2 text-white/40">
-                                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                                Income
-                            </div>
-
-                            <div className="flex items-center gap-2 text-white/40">
-                                <span className="h-2 w-2 rounded-full bg-rose-400" />
-                                Expenses
-                            </div>
-
-                        </div>
-
-                    </Card>
-
-                    {/* SPENDING BREAKDOWN */}
-
-                    <Card className="min-w-0 rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
-
-                        <h3 className="font-semibold text-white">
-                            Spending breakdown
-                        </h3>
-
-                        <p className="mt-1 text-sm text-white/35">
-                            Where your money goes
-                        </p>
-
-                        <div className="relative mt-4 h-[260px] min-w-0 sm:h-[300px] lg:h-[320px]">
-
-                            {categoryData.length === 0 ? (
-
-                                <div className="flex h-full min-h-[260px] flex-col items-center justify-center text-center">
-
-                                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-2xl">
-                                        📊
-                                    </div>
-
-                                    <h3 className="mt-4 text-sm font-semibold text-white">
-                                        No spending data yet
-                                    </h3>
-
-                                    <p className="mt-1 max-w-xs text-xs text-white/30">
-                                        Add an expense to see your
-                                        spending breakdown.
-                                    </p>
-
-                                </div>
-
-                            ) : (
-
-                                <ResponsiveContainer
-                                    width="100%"
-                                    height="100%"
-                                >
-                                    <PieChart>
-
-                                        <Pie
-                                            data={categoryData}
-                                            dataKey="value"
-                                            nameKey="name"
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={58}
-                                            outerRadius={82}
-                                            paddingAngle={4}
-                                            stroke="none"
-                                        >
-                                            {categoryData.map(
-                                                (entry, index) => (
-                                                    <Cell
-                                                        key={`${entry.name}-${index}`}
-                                                        fill={
-                                                            [
-                                                                "#a78bfa",
-                                                                "#34d399",
-                                                                "#60a5fa",
-                                                                "#fb7185",
-                                                                "#fbbf24",
-                                                            ][index % 5]
-                                                        }
-                                                    />
-                                                )
-                                            )}
-                                        </Pie>
-
-                                        <Tooltip
-                                            contentStyle={{
-                                                background: "#111318",
-                                                border:
-                                                    "1px solid rgba(255,255,255,0.1)",
-                                                borderRadius: "14px",
-                                            }}
-                                        />
-
-                                    </PieChart>
-                                </ResponsiveContainer>
-
-                            )}
-
-                            {categoryData.length > 0 && (
-                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-
-                                    <div className="text-center">
-
-                                        <p className="text-lg font-bold text-white">
-                                            ₹
-                                            {formatMoney(
-                                                selectedMonthExpense
-                                            )}
-                                        </p>
-
-                                        <p className="text-[10px] uppercase tracking-wider text-white/30">
-                                            spent
-                                        </p>
-
-                                    </div>
-
-                                </div>
-                            )}
-
-                        </div>
-
-                        <div className="mt-4 space-y-3">
-
-                            {categoryData
-                                .slice(0, 4)
-                                .map((category) => {
-
-                                    const percentage =
-                                        selectedMonthExpense > 0
-                                            ? (category.value /
-                                                selectedMonthExpense) *
-                                            100
-                                            : 0
-
-                                    return (
-                                        <div
-                                            key={category.name}
-                                            className="flex items-center justify-between"
-                                        >
-
-                                            <div className="flex min-w-0 items-center gap-3">
-
-                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5">
-                                                    <span className="text-violet-400">
-                                                        {getCategoryIcon(
-                                                            category.name
-                                                        )}
-                                                    </span>
-                                                </div>
-
-                                                <div className="min-w-0">
-
-                                                    <p className="truncate text-sm font-medium text-white/75">
-                                                        {category.name}
-                                                    </p>
-
-                                                    <p className="text-[11px] text-white/30">
-                                                        {percentage.toFixed(0)}%
-                                                    </p>
-
-                                                </div>
-
-                                            </div>
-
-                                            <p className="shrink-0 text-sm font-semibold text-white">
-                                                ₹
-                                                {formatMoney(
-                                                    category.value
-                                                )}
-                                            </p>
-
-                                        </div>
-                                    )
-                                })}
-
-                        </div>
-
-                    </Card>
-
-                </div>
-
-                {/* INCOME VS EXPENSES */}
-
-                <Card className="min-w-0 rounded-3xl border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
-
-                    <h3 className="font-semibold text-white">
-                        Income vs expenses
-                    </h3>
-
-                    <p className="mt-1 text-sm text-white/35">
-                        Total money coming in compared with money going out
-                    </p>
-
-                    <div className="mt-8 h-[260px] min-w-0 sm:h-[300px] lg:h-[320px]">
-
-                        {incomeExpenseData.some(
-                            (item) => item.amount > 0
-                        ) ? (
-
-                            <ResponsiveContainer
-                                width="100%"
-                                height="100%"
-                            >
-                                <BarChart
-                                    data={incomeExpenseData}
-                                >
-
-                                    <CartesianGrid
-                                        stroke="rgba(255,255,255,0.06)"
-                                        vertical={false}
-                                    />
-
-                                    <XAxis
-                                        dataKey="name"
-                                        tick={{
-                                            fill: "#71717a",
-                                            fontSize: 11,
-                                        }}
-                                        axisLine={false}
-                                        tickLine={false}
-                                    />
-
-                                    <YAxis
-                                        tick={{
-                                            fill: "#71717a",
-                                            fontSize: 11,
-                                        }}
-                                        tickFormatter={(value) =>
-                                            `₹${value}`
-                                        }
-                                        axisLine={false}
-                                        tickLine={false}
-                                    />
-
-                                    <Tooltip
-                                        contentStyle={{
-                                            background: "#111318",
-                                            border:
-                                                "1px solid rgba(255,255,255,0.1)",
-                                            borderRadius: "14px",
-                                        }}
-                                    />
-
-                                    <Bar
-                                        dataKey="amount"
-                                        name="Amount"
-                                        fill="#a78bfa"
-                                        radius={[6, 6, 0, 0]}
-                                    />
-
-                                </BarChart>
-                            </ResponsiveContainer>
-
-                        ) : (
-
-                            <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/25">
-                                No income or expense data yet.
-                            </div>
-
-                        )}
-
-                    </div>
-
-                </Card>
-
-                <FinancialInsights />
-
-                {/* BUDGET HEALTH */}
-
-                <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
-
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-
-                        <div>
-
-                            <div className="flex items-center gap-2">
-
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-400">
-                                    Budget health
-                                </p>
-
-                                <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
-                                    {selectedMonthLabel}
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/25">Financial overview</p>
+                            <div className="mt-2 flex flex-wrap items-baseline gap-3">
+                                <h2 className="text-2xl font-bold tracking-[-0.035em] text-white sm:text-3xl">{selectedMonthLabel}</h2>
+                                <span className="rounded-full border border-white/[0.07] bg-white/[0.025] px-2.5 py-1 text-[10px] text-white/35">
+                                    {monthlyTransactions.length} transactions
                                 </span>
-
                             </div>
-
-                            <h2 className="mt-2 text-xl font-bold text-white">
-                                Stay within your limits
-                            </h2>
-
-                            <p className="mt-1 text-sm text-white/30">
-                                Track your spending against your monthly budgets.
-                            </p>
-
                         </div>
 
-                        <div className="text-left sm:text-right">
-
-                            <p className="text-xs text-white/30">
-                                Overall usage
-                            </p>
-
-                            <p className="mt-1 text-2xl font-bold text-white">
-                                {overallBudgetPercentage.toFixed(0)}%
-                            </p>
-
-                            <p className="mt-1 text-xs text-white/25">
-                                ₹{formatMoney(totalBudgetSpent)} / ₹
-                                {formatMoney(totalBudget)}
-                            </p>
-
+                        <div className="flex items-center gap-1.5 self-start rounded-2xl border border-white/[0.08] bg-white/[0.025] p-1 sm:self-auto">
+                            <button onClick={goToPreviousMonth} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/35 transition hover:bg-white/[0.06] hover:text-white" aria-label="Previous month">
+                                <ArrowLeft size={16} />
+                            </button>
+                            <div className="min-w-[145px] px-2 text-center text-xs font-semibold text-white/70">{selectedMonthLabel}</div>
+                            <button onClick={goToNextMonth} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/35 transition hover:bg-white/[0.06] hover:text-white" aria-label="Next month">
+                                <ArrowRight size={16} />
+                            </button>
                         </div>
+                    </section>
 
-                    </div>
+                    {/* HERO BENTO */}
+                    <section className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,.75fr)]">
+                        <Card className="relative min-w-0 overflow-hidden rounded-[30px] border-white/[0.08] bg-gradient-to-br from-white/[0.055] via-white/[0.025] to-violet-500/[0.045] p-6 shadow-2xl shadow-black/20 backdrop-blur-2xl sm:p-8">
+                            <div className="pointer-events-none absolute -right-24 -top-28 h-80 w-80 rounded-full bg-violet-500/[0.12] blur-[80px]" />
+                            <div className="pointer-events-none absolute bottom-[-100px] left-[20%] h-56 w-56 rounded-full bg-emerald-400/[0.06] blur-[70px]" />
 
-                    <div className="mt-6">
-
-                        <div className="h-2 overflow-hidden rounded-full bg-white/5">
-
-                            <div
-                                className={`h-full rounded-full transition-all duration-700 ${
-                                    overallBudgetPercentage >= 100
-                                        ? "bg-rose-400"
-                                        : overallBudgetPercentage >= 85
-                                            ? "bg-amber-400"
-                                            : "bg-emerald-400"
-                                }`}
-                                style={{
-                                    width: `${displayOverallBudgetPercentage}%`,
-                                }}
-                            />
-
-                        </div>
-
-                    </div>
-
-                    <div className="mt-6 grid gap-3 lg:grid-cols-2">
-
-                        {budgetsError ? (
-
-                            <div className="lg:col-span-2 rounded-2xl border border-rose-500/10 bg-rose-500/5 p-8 text-center">
-
-                                <p className="text-sm text-rose-300">
-                                    Unable to load budgets.
-                                </p>
-
-                                <p className="mt-1 text-xs text-white/25">
-                                    Check that your budget API is running correctly.
-                                </p>
-
-                            </div>
-
-                        ) : budgetHealth.length === 0 ? (
-
-                            <div className="lg:col-span-2 rounded-2xl border border-dashed border-white/10 p-10 text-center">
-
-                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-400">
-                                    <Wallet size={20} />
+                            <div className="relative">
+                                <div className="flex items-start justify-between gap-5">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,.8)]" />
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Available balance</p>
+                                        </div>
+                                        <div className="mt-4 text-4xl font-bold tracking-[-0.055em] text-white sm:text-5xl lg:text-6xl">
+                                            <AnimatedNumber value={Number(summary?.balance) || 0} prefix="₹" />
+                                        </div>
+                                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                                            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/10 bg-emerald-400/[0.08] px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
+                                                <TrendingUp size={12} /> Healthy
+                                            </span>
+                                            <span className="text-[11px] text-white/30">Current available balance</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.045] text-white/75 shadow-xl shadow-black/10">
+                                        <Wallet size={21} />
+                                    </div>
                                 </div>
 
-                                <p className="mt-4 text-sm font-medium text-white">
-                                    No budgets created
-                                </p>
-
-                                <p className="mt-1 text-xs text-white/30">
-                                    Create a budget for {selectedMonthLabel} to start tracking your limits.
-                                </p>
-
-                            </div>
-
-                        ) : (
-
-                            budgetHealth.map((budget) => {
-
-                                const status =
-                                    getBudgetStatus(
-                                        budget.percentage
-                                    )
-
-                                const categoryName =
-                                    typeof budget.category ===
-                                    "string"
-                                        ? budget.category
-                                        : budget.category &&
-                                        typeof budget.category ===
-                                        "object"
-                                            ? budget.category.name ??
-                                            "Uncategorized"
-                                            : "Uncategorized"
-
-                                return (
-                                    <div
-                                        key={budget.id}
-                                        className="rounded-2xl border border-white/[0.07] bg-black/10 p-5 transition hover:border-white/[0.12]"
-                                    >
-
-                                        <div className="flex items-center justify-between gap-4">
-
-                                            <div className="min-w-0">
-
-                                                <p className="truncate text-sm font-semibold text-white">
-                                                    {categoryName}
-                                                </p>
-
-                                                <p className="mt-1 text-xs text-white/25">
-                                                    ₹
-                                                    {formatMoney(
-                                                        budget.spent
-                                                    )}{" "}
-                                                    / ₹
-                                                    {formatMoney(
-                                                        budget.limit
-                                                    )}
-                                                </p>
-
-                                            </div>
-
-                                            <div className="text-right">
-
-                                                <p className="text-sm font-bold text-white">
-                                                    {budget.percentage.toFixed(0)}%
-                                                </p>
-
-                                                <p
-                                                    className={`mt-1 text-xs font-medium ${status.className}`}
-                                                >
-                                                    {status.label}
-                                                </p>
-
-                                            </div>
-
-                                        </div>
-
-                                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
-
-                                            <div
-                                                className={`h-full rounded-full transition-all duration-700 ${
-                                                    budget.percentage >= 100
-                                                        ? "bg-rose-400"
-                                                        : budget.percentage >= 85
-                                                            ? "bg-amber-400"
-                                                            : "bg-emerald-400"
-                                                }`}
-                                                style={{
-                                                    width: `${budget.displayPercentage}%`,
-                                                }}
-                                            />
-
-                                        </div>
-
-                                        <div className="mt-3 flex items-center justify-between">
-
-                                            <span className="text-xs text-white/25">
-                                                Remaining
-                                            </span>
-
-                                            <span
-                                                className={`text-xs font-medium ${
-                                                    budget.remaining < 0
-                                                        ? "text-rose-400"
-                                                        : "text-white/50"
-                                                }`}
-                                            >
-                                                ₹
-                                                {formatMoney(
-                                                    Math.abs(
-                                                        budget.remaining
-                                                    )
-                                                )}
-
-                                                {budget.remaining < 0
-                                                    ? " over"
-                                                    : ""}
-                                            </span>
-
-                                        </div>
-
-
-
-
-                                    </div>
-                                )
-                            })
-                        )}
-
-                    </div>
-
-                </section>
-
-                {/* FINANCIAL HEALTH */}
-
-                <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl">
-
-                    <div className="flex items-center justify-between">
-
-                        <div>
-
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/25">
-                                Financial health
-                            </p>
-
-                            <h2 className="mt-2 text-xl font-bold text-white">
-                                {financialHealth.label}
-                            </h2>
-
-                        </div>
-
-                        <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/10">
-
-                            <div className="text-center">
-
-                                <p className="text-xl font-bold text-white">
-                                    {financialHealth.score}
-                                </p>
-
-                                <p className="text-[9px] uppercase tracking-wider text-white/25">
-                                    score
-                                </p>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                    <div className="mt-6">
-
-                        <div className="h-2 overflow-hidden rounded-full bg-white/5">
-
-                            <div
-                                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-400 transition-all duration-700"
-                                style={{
-                                    width: `${financialHealth.score}%`,
-                                }}
-                            />
-
-                        </div>
-
-                        <div className="mt-2 flex justify-between text-[10px] text-white/20">
-
-                            <span>
-                                Needs attention
-                            </span>
-
-                            <span>
-                                Excellent
-                            </span>
-
-                        </div>
-
-                    </div>
-
-                </section>
-
-                {/* RECENT TRANSACTIONS */}
-
-                <Card className="overflow-hidden rounded-3xl border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
-
-                    <div className="flex flex-col gap-4 border-b border-white/[0.07] p-6 sm:flex-row sm:items-center sm:justify-between">
-
-                        <div>
-
-                            <div className="flex items-center gap-2">
-
-                                <h3 className="font-semibold text-white">
-                                    Recent transactions
-                                </h3>
-
-                                <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/30">
-                                    {monthlyTransactions.length}
-                                </span>
-
-                            </div>
-
-                            <p className="mt-1 text-sm text-white/35">
-                                Your latest financial activity
-                            </p>
-
-                        </div>
-
-                        <button className="w-fit text-sm font-medium text-white/40 transition hover:text-white">
-                            View all →
-                        </button>
-
-                    </div>
-
-                    <div className="divide-y divide-white/[0.05]">
-
-                        {monthlyTransactions.length === 0 ? (
-
-                            <div className="px-6 py-14 text-center">
-
-                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/30">
-                                    <Wallet size={22} />
+                                <div className="mt-9 h-[150px] min-w-0">
+                                    {cashFlowData.length > 0 ? (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={cashFlowData} barGap={4}>
+                                                <XAxis dataKey="date" hide />
+                                                <YAxis hide />
+                                                <Tooltip
+                                                    cursor={{ fill: "rgba(255,255,255,0.025)" }}
+                                                    contentStyle={{ background: "#101116", border: "1px solid rgba(255,255,255,.09)", borderRadius: "16px", color: "white", fontSize: 12 }}
+                                                />
+                                                <Bar dataKey="income" name="Income" fill="#34d399" radius={[7,7,3,3]} />
+                                                <Bar dataKey="expense" name="Expenses" fill="#fb7185" radius={[7,7,3,3]} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/[0.08] text-xs text-white/25">No cash-flow data for {selectedMonthLabel}.</div>
+                                    )}
                                 </div>
 
-                                <p className="mt-4 font-medium text-white">
-                                    No transactions in{" "}
-                                    {selectedMonthLabel}
-                                </p>
-
-                                <p className="mt-1 text-sm text-white/35">
-                                    Add a transaction or select another month.
-                                </p>
-
-                                <Button className="mt-5 rounded-xl bg-white text-black hover:bg-white/90">
-                                    <Plus size={16} />
-                                    Add transaction
-                                </Button>
-
+                                <div className="mt-4 flex items-center gap-5 text-[10px] text-white/30">
+                                    <span className="flex items-center gap-2"><i className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Income</span>
+                                    <span className="flex items-center gap-2"><i className="h-1.5 w-1.5 rounded-full bg-rose-400" />Expenses</span>
+                                </div>
                             </div>
+                        </Card>
 
-                        ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                            <Card className="group relative overflow-hidden rounded-[26px] border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:bg-white/[0.04]">
+                                <div className="flex items-center justify-between"><p className="text-xs font-medium text-white/35">Income</p><span className="rounded-xl bg-emerald-400/10 p-2 text-emerald-400"><ArrowUpRight size={16}/></span></div>
+                                <p className="mt-6 text-2xl font-bold tracking-[-0.04em] text-white"><AnimatedNumber value={selectedMonthIncome} prefix="₹" /></p>
+                                <p className="mt-2 text-[10px] text-emerald-400/70">{selectedMonthLabel}</p>
+                            </Card>
+                            <Card className="group relative overflow-hidden rounded-[26px] border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:bg-white/[0.04]">
+                                <div className="flex items-center justify-between"><p className="text-xs font-medium text-white/35">Expenses</p><span className="rounded-xl bg-rose-400/10 p-2 text-rose-400"><ArrowDownRight size={16}/></span></div>
+                                <p className="mt-6 text-2xl font-bold tracking-[-0.04em] text-white"><AnimatedNumber value={selectedMonthExpense} prefix="₹" /></p>
+                                <p className="mt-2 text-[10px] text-rose-400/70">{selectedMonthLabel}</p>
+                            </Card>
+                            <Card className="group relative overflow-hidden rounded-[26px] border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:bg-white/[0.04]">
+                                <div className="flex items-center justify-between"><p className="text-xs font-medium text-white/35">Savings rate</p><span className="rounded-xl bg-violet-400/10 p-2 text-violet-300"><Sparkles size={16}/></span></div>
+                                <p className="mt-6 text-2xl font-bold tracking-[-0.04em] text-white">{monthlySavingsRate.toFixed(1)}%</p>
+                                <p className="mt-2 text-[10px] text-white/25">{monthlySavingsRate >= 50 ? "Excellent savings" : monthlySavingsRate >= 30 ? "Healthy savings" : monthlySavingsRate >= 15 ? "Good progress" : "Needs attention"}</p>
+                            </Card>
+                            <Card className="group relative overflow-hidden rounded-[26px] border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:bg-white/[0.04]">
+                                <div className="flex items-center justify-between"><p className="text-xs font-medium text-white/35">Health score</p><span className="rounded-xl bg-indigo-400/10 p-2 text-indigo-300"><Sparkles size={16}/></span></div>
+                                <p className="mt-6 text-2xl font-bold tracking-[-0.04em] text-white">{financialHealth.score}<span className="ml-1 text-xs font-medium text-white/25">/100</span></p>
+                                <p className="mt-2 text-[10px] text-white/25">{financialHealth.label}</p>
+                            </Card>
+                        </div>
+                    </section>
 
-                            monthlyTransactions
-                                .slice(0, 5)
-                                .map((transaction) => (
-
-                                    <div
-                                        key={transaction.id}
-                                        className="group flex items-center justify-between gap-4 px-6 py-4 transition-colors duration-200 hover:bg-white/[0.025]"
-                                    >
-
-                                        <div className="flex min-w-0 items-center gap-4">
-
-                                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-white/55">
-                                                {getCategoryIcon(
-                                                    transaction.category
-                                                )}
-                                            </div>
-
-                                            <div className="min-w-0">
-
-                                                <p className="truncate text-sm font-semibold text-white">
-                                                    {transaction.title ||
-                                                        "Untitled transaction"}
-                                                </p>
-
-                                                <p className="mt-1 truncate text-xs text-white/30">
-                                                    {transaction.category ||
-                                                        "Other"}{" "}
-                                                    · {transaction.date}
-                                                </p>
-
-                                            </div>
-
+                    {/* MONTH COMPARISON */}
+                    <section className="grid gap-4 md:grid-cols-3">
+                        {[
+                            { label: "Expenses", amount: comparison.current.expense, change: comparison.expenseChange, positive: comparison.expenseChange < 0, icon: TrendingDown },
+                            { label: "Income", amount: comparison.current.income, change: comparison.incomeChange, positive: comparison.incomeChange > 0, icon: TrendingUp },
+                            { label: savingsLabel, amount: Math.abs(comparison.current.savings), change: comparison.savingsChange, positive: comparison.current.savings >= 0 ? comparison.savingsChange > 0 : comparison.savingsChange < 0, icon: Sparkles },
+                        ].map((item) => {
+                            const Icon = item.icon
+                            return (
+                                <div key={item.label} className="rounded-[24px] border border-white/[0.07] bg-white/[0.02] p-5 transition hover:border-white/[0.12] hover:bg-white/[0.03]">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">{item.label}</p>
+                                            <p className={`mt-3 text-2xl font-bold tracking-[-0.04em] ${item.label === savingsLabel ? (comparison.current.savings >= 0 ? "text-emerald-400" : "text-rose-400") : "text-white"}`}>₹{item.amount.toLocaleString("en-IN")}</p>
                                         </div>
-
-                                        <div className="flex shrink-0 items-center gap-4">
-
-                                            <div className="text-right">
-
-                                                <p
-                                                    className={
-                                                        transaction.type ===
-                                                        "INCOME"
-                                                            ? "text-sm font-bold text-emerald-400"
-                                                            : "text-sm font-bold text-white"
-                                                    }
-                                                >
-
-                                                    {transaction.type ===
-                                                    "INCOME"
-                                                        ? "+"
-                                                        : "-"}
-                                                    ₹
-                                                    {formatMoney(
-                                                        Math.abs(
-                                                            Number(
-                                                                transaction.amount
-                                                            ) || 0
-                                                        )
-                                                    )}
-
-                                                </p>
-
-                                                <p className="mt-1 text-[10px] uppercase tracking-wider text-white/20">
-                                                    {transaction.type}
-                                                </p>
-
-                                            </div>
-
-                                            <button
-                                                className="hidden rounded-lg p-2 text-white/20 opacity-0 transition hover:bg-white/5 hover:text-white sm:block sm:group-hover:opacity-100"
-                                                aria-label="Transaction options"
-                                            >
-                                                <MoreHorizontal size={18} />
-                                            </button>
-
-                                        </div>
-
+                                        <span className={`rounded-xl p-2.5 ${item.positive ? "bg-emerald-400/10 text-emerald-400" : "bg-rose-400/10 text-rose-400"}`}><Icon size={16}/></span>
                                     </div>
+                                    <div className="mt-4 flex items-center justify-between">
+                                        <p className={`text-xs font-semibold ${item.positive ? "text-emerald-400" : "text-rose-400"}`}>{formatChange(item.change)}</p>
+                                        <p className="text-[10px] text-white/20">vs {previousMonthLabel}</p>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </section>
 
-                                ))
-
-                        )}
-
-                    </div>
-
-                </Card>
-
-                {/* FOOTER */}
-
-                <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.018] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-
-                    <div className="flex items-center gap-3">
-
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
-                            <Sparkles size={16} />
+                    {/* FINANCIAL INTELLIGENCE */}
+                    <section className="relative overflow-hidden rounded-[28px] border border-violet-400/[0.10] bg-gradient-to-br from-violet-500/[0.07] via-white/[0.025] to-transparent p-6 sm:p-7">
+                        <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full bg-violet-500/[0.08] blur-[70px]" />
+                        <div className="relative">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-400/10 bg-violet-400/10 text-violet-300"><Sparkles size={17}/></div>
+                                <div><p className="text-[9px] font-bold uppercase tracking-[0.24em] text-violet-300/70">Financial intelligence</p><h2 className="mt-1 text-lg font-bold">What's changing?</h2></div>
+                            </div>
+                            <div className="mt-6 grid gap-3 lg:grid-cols-3">
+                                <div className="rounded-2xl border border-white/[0.06] bg-black/15 p-5"><p className="text-[10px] uppercase tracking-[0.15em] text-white/25">Spending trend</p><p className="mt-3 text-sm leading-6 text-white/60">{expenseInsight}</p></div>
+                                <div className="rounded-2xl border border-white/[0.06] bg-black/15 p-5"><p className="text-[10px] uppercase tracking-[0.15em] text-white/25">Savings trend</p><p className="mt-3 text-sm leading-6 text-white/60">{savingsInsight}</p></div>
+                                <div className="rounded-2xl border border-white/[0.06] bg-black/15 p-5"><p className="text-[10px] uppercase tracking-[0.15em] text-white/25">Largest category</p>{biggestCategory ? <><p className="mt-3 text-base font-bold text-white">{biggestCategory.category}</p><p className="mt-1 text-xs text-white/35">₹{formatMoney(biggestCategory.amount)} spent this month</p></> : <p className="mt-3 text-sm text-white/30">No expense data yet</p>}</div>
+                            </div>
                         </div>
+                    </section>
 
-                        <div>
+                    {/* ANALYTICS GRID */}
+                    <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(350px,.7fr)]">
+                        <Card className="min-w-0 rounded-[28px] border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl sm:p-7">
+                            <div className="flex items-end justify-between gap-4"><div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25">Cash flow</p><h3 className="mt-1 text-lg font-semibold">Income vs expenses</h3></div><div className="hidden items-center gap-4 text-[10px] text-white/30 sm:flex"><span className="flex items-center gap-2"><i className="h-1.5 w-1.5 rounded-full bg-emerald-400"/>Income</span><span className="flex items-center gap-2"><i className="h-1.5 w-1.5 rounded-full bg-rose-400"/>Expenses</span></div></div>
+                            <div className="mt-7 h-[290px] min-w-0 sm:h-[330px]">
+                                {cashFlowData.length > 0 ? <ResponsiveContainer width="100%" height="100%"><AreaChart data={cashFlowData} margin={{top:10,right:4,left:-18,bottom:0}}><CartesianGrid stroke="rgba(255,255,255,.055)" vertical={false}/><XAxis dataKey="date" tick={{fill:"#71717a",fontSize:10}} tickFormatter={(v)=>String(v).slice(5)} axisLine={false} tickLine={false}/><YAxis tick={{fill:"#71717a",fontSize:10}} tickFormatter={(v)=>`₹${v}`} axisLine={false} tickLine={false}/><Tooltip cursor={{fill:"rgba(255,255,255,.02)"}} contentStyle={{background:"#101116",border:"1px solid rgba(255,255,255,.09)",borderRadius:"16px",fontSize:12}}/><Area type="monotone" dataKey="income" name="Income" fill="#34d399" fillOpacity={0.10} stroke="#34d399" strokeWidth={2.5}/><Area type="monotone" dataKey="expense" name="Expenses" fill="#fb7185" fillOpacity={0.08} stroke="#fb7185" strokeWidth={2.5}/></AreaChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/[0.08] text-xs text-white/25">No transaction data available.</div>}
+                            </div>
+                        </Card>
 
-                            <p className="text-sm font-medium text-white/70">
-                                Financial snapshot
-                            </p>
+                        <Card className="min-w-0 rounded-[28px] border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl sm:p-7">
+                            <div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25">Spending breakdown</p><h3 className="mt-1 text-lg font-semibold">Where your money goes</h3></div>
+                            <div className="relative mt-3 h-[230px] min-w-0">
+                                {categoryData.length > 0 ? <><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={62} outerRadius={88} paddingAngle={4} stroke="none">{categoryData.map((entry,index)=><Cell key={`${entry.name}-${index}`} fill={["#a78bfa","#34d399","#60a5fa","#fb7185","#fbbf24"][index%5]}/>)}</Pie><Tooltip contentStyle={{background:"#101116",border:"1px solid rgba(255,255,255,.09)",borderRadius:"16px",fontSize:12}}/></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 flex items-center justify-center"><div className="text-center"><p className="text-xl font-bold tracking-[-.04em]">₹{formatMoney(selectedMonthExpense)}</p><p className="mt-0.5 text-[9px] uppercase tracking-[.18em] text-white/25">spent</p></div></div></> : <div className="flex h-full items-center justify-center text-xs text-white/25">No spending data yet.</div>}
+                            </div>
+                            <div className="mt-3 space-y-2.5">
+                                {categoryData.slice(0,4).map((category,index)=>{ const percentage=selectedMonthExpense>0?(category.value/selectedMonthExpense)*100:0; return <div key={category.name} className="flex items-center gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.045] text-violet-300">{getCategoryIcon(category.name)}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><p className="truncate text-xs font-medium text-white/70">{category.name}</p><p className="shrink-0 text-xs font-semibold text-white/65">₹{formatMoney(category.value)}</p></div><div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/[0.05]"><div className="h-full rounded-full bg-violet-400/70" style={{width:`${Math.min(100,percentage)}%`}}/></div></div></div>})}
+                            </div>
+                        </Card>
+                    </section>
 
-                            <p className="text-xs text-white/30">
-                                Keep tracking your spending to improve your financial health.
-                            </p>
+                    {/* INCOME / EXPENSE BAR */}
+                    <Card className="min-w-0 rounded-[28px] border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl sm:p-7">
+                        <div className="flex flex-col gap-1"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25">Monthly comparison</p><h3 className="text-lg font-semibold">Income vs expenses</h3><p className="text-xs text-white/30">Total money coming in compared with money going out</p></div>
+                        <div className="mt-6 h-[270px] min-w-0 sm:h-[310px]">{incomeExpenseData.some(item=>item.amount>0) ? <ResponsiveContainer width="100%" height="100%"><BarChart data={incomeExpenseData} margin={{top:10,right:5,left:-15,bottom:0}}><CartesianGrid stroke="rgba(255,255,255,.055)" vertical={false}/><XAxis dataKey="name" tick={{fill:"#71717a",fontSize:11}} axisLine={false} tickLine={false}/><YAxis tick={{fill:"#71717a",fontSize:10}} tickFormatter={(v)=>`₹${v}`} axisLine={false} tickLine={false}/><Tooltip contentStyle={{background:"#101116",border:"1px solid rgba(255,255,255,.09)",borderRadius:"16px",fontSize:12}}/><Bar dataKey="amount" name="Amount" fill="#a78bfa" radius={[8,8,2,2]} barSize={54}/></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/[0.08] text-xs text-white/25">No income or expense data yet.</div>}</div>
+                    </Card>
 
+                    {/* INTELLIGENCE MODULES */}
+
+
+                    {/* BUDGET */}
+                    <section className="rounded-[28px] border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl sm:p-7">
+                        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                            <div><div className="flex items-center gap-2"><p className="text-[9px] font-bold uppercase tracking-[0.22em] text-violet-300/70">Budget health</p><span className="rounded-full bg-violet-400/10 px-2 py-0.5 text-[9px] text-violet-300">{selectedMonthLabel}</span></div><h2 className="mt-2 text-xl font-bold tracking-[-.025em]">Stay within your limits</h2><p className="mt-1 text-xs text-white/30">Track your spending against your monthly budgets.</p></div>
+                            <div className="min-w-[170px] lg:text-right"><p className="text-[10px] text-white/25">Overall usage</p><p className="mt-1 text-2xl font-bold">{overallBudgetPercentage.toFixed(0)}%</p><p className="mt-1 text-[10px] text-white/25">₹{formatMoney(totalBudgetSpent)} / ₹{formatMoney(totalBudget)}</p></div>
                         </div>
+                        <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/[0.05]"><div className={`h-full rounded-full transition-all duration-700 ${overallBudgetPercentage>=100?"bg-rose-400":overallBudgetPercentage>=85?"bg-amber-400":"bg-emerald-400"}`} style={{width:`${displayOverallBudgetPercentage}%`}}/></div>
+                        <div className="mt-6 grid gap-3 lg:grid-cols-2">
+                            {budgetsError ? <div className="lg:col-span-2 rounded-2xl border border-rose-500/10 bg-rose-500/5 p-8 text-center text-sm text-rose-300">Unable to load budgets.</div> : budgetHealth.length===0 ? <div className="lg:col-span-2 rounded-2xl border border-dashed border-white/[0.08] p-10 text-center"><Wallet size={20} className="mx-auto text-violet-400"/><p className="mt-3 text-sm font-medium">No budgets created</p><p className="mt-1 text-xs text-white/25">Create a budget for {selectedMonthLabel} to start tracking your limits.</p></div> : budgetHealth.map((budget)=>{ const status=getBudgetStatus(budget.percentage); const categoryName=typeof budget.category==="string"?budget.category:budget.category&&typeof budget.category==="object"?budget.category.name??"Uncategorized":"Uncategorized"; return <div key={budget.id} className="rounded-2xl border border-white/[0.07] bg-black/10 p-5 transition hover:border-white/[0.12] hover:bg-white/[0.025]"><div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="truncate text-sm font-semibold">{categoryName}</p><p className="mt-1 text-[10px] text-white/25">₹{formatMoney(budget.spent)} / ₹{formatMoney(budget.limit)}</p></div><div className="text-right"><p className="text-sm font-bold">{budget.percentage.toFixed(0)}%</p><p className={`mt-1 text-[10px] font-semibold ${status.className}`}>{status.label}</p></div></div><div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.05]"><div className={`h-full rounded-full ${budget.percentage>=100?"bg-rose-400":budget.percentage>=85?"bg-amber-400":"bg-emerald-400"}`} style={{width:`${budget.displayPercentage}%`}}/></div><div className="mt-3 flex justify-between text-[10px]"><span className="text-white/20">Remaining</span><span className={budget.remaining<0?"text-rose-400":"text-white/45"}>₹{formatMoney(Math.abs(budget.remaining))}{budget.remaining<0?" over":""}</span></div></div>})}
+                        </div>
+                    </section>
 
-                    </div>
+                    {/* FINANCIAL HEALTH SCORE */}
+                    <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+                        <div className="rounded-[28px] border border-white/[0.08] bg-gradient-to-br from-violet-500/[0.06] to-white/[0.02] p-6 backdrop-blur-xl sm:p-7">
+                            <div className="flex items-center justify-between gap-4"><div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25">Financial health</p><h2 className="mt-2 text-2xl font-bold tracking-[-.035em]">{financialHealth.label}</h2><p className="mt-1 text-xs text-white/30">A quick snapshot of your savings and budget discipline.</p></div><div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-violet-400/20 bg-violet-400/[0.06] shadow-[0_0_60px_rgba(139,92,246,.08)]"><div className="text-center"><p className="text-xl font-bold">{financialHealth.score}</p><p className="text-[8px] uppercase tracking-[.18em] text-white/25">score</p></div></div></div>
+                            <div className="mt-7 h-2 overflow-hidden rounded-full bg-white/[0.05]"><div className="h-full rounded-full bg-gradient-to-r from-violet-500 via-indigo-400 to-emerald-400 transition-all duration-700" style={{width:`${financialHealth.score}%`}}/></div><div className="mt-2 flex justify-between text-[9px] text-white/20"><span>Needs attention</span><span>Excellent</span></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5"><p className="text-[10px] text-white/25">Savings rate</p><p className="mt-3 text-2xl font-bold">{monthlySavingsRate.toFixed(0)}%</p></div>
+                            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5"><p className="text-[10px] text-white/25">Budget use</p><p className="mt-3 text-2xl font-bold">{overallBudgetPercentage.toFixed(0)}%</p></div>
+                            <div className="col-span-2 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5"><p className="text-[10px] text-white/25">Monthly net</p><p className={`mt-2 text-xl font-bold ${comparison.current.savings>=0?"text-emerald-400":"text-rose-400"}`}>{comparison.current.savings>=0?"+":"-"}₹{formatMoney(Math.abs(comparison.current.savings))}</p></div>
+                        </div>
+                    </section>
 
-                    <span className="text-xs font-medium text-white/25">
-                        FINORA
-                    </span>
+                    {/* RECENT TRANSACTIONS */}
+                    <Card className="overflow-hidden rounded-[28px] border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
+                        <div className="flex flex-col gap-4 border-b border-white/[0.07] p-6 sm:flex-row sm:items-center sm:justify-between sm:p-7"><div><div className="flex items-center gap-2"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25">Activity</p><span className="rounded-full border border-white/[0.07] bg-white/5 px-2 py-0.5 text-[9px] text-white/30">{monthlyTransactions.length}</span></div><h3 className="mt-2 text-lg font-semibold">Recent transactions</h3><p className="mt-1 text-xs text-white/30">Your latest financial activity for {selectedMonthLabel}.</p></div><button className="self-start rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 py-2 text-xs font-semibold text-white/45 transition hover:border-white/15 hover:bg-white/[0.05] hover:text-white">View all <span className="ml-1">→</span></button></div>
+                        <div className="divide-y divide-white/[0.05]">
+                            {monthlyTransactions.length===0 ? <div className="px-6 py-16 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.035] text-white/25"><Wallet size={22}/></div><p className="mt-4 font-medium">No transactions in {selectedMonthLabel}</p><p className="mt-1 text-xs text-white/30">Add a transaction or select another month.</p><Button className="mt-5 rounded-xl bg-white text-black hover:bg-white/90"><Plus size={15} className="mr-1.5"/>Add transaction</Button></div> : monthlyTransactions.slice(0,6).map((transaction,index)=><div key={transaction.id} className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 transition hover:bg-white/[0.025] sm:px-7"><div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${transaction.type==="INCOME"?"border-emerald-400/10 bg-emerald-400/[0.08] text-emerald-400":"border-white/[0.08] bg-white/[0.035] text-white/50"}`}>{getCategoryIcon(transaction.category)}</div><div className="min-w-0"><div className="flex min-w-0 items-center gap-2"><p className="truncate text-sm font-semibold text-white">{transaction.title||"Untitled transaction"}</p>{index===0&&<span className="hidden shrink-0 rounded-full bg-violet-400/10 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-violet-300 sm:inline-flex">Latest</span>}</div><p className="mt-1 truncate text-[10px] text-white/25">{transaction.category||"Other"} · {transaction.date}</p></div><div className="text-right"><p className={`text-sm font-semibold ${transaction.type==="INCOME"?"text-emerald-400":"text-white/85"}`}>{transaction.type==="INCOME"?"+":"-"}₹{formatMoney(Math.abs(Number(transaction.amount)||0))}</p><p className="mt-1 text-[8px] uppercase tracking-[.16em] text-white/20">{transaction.type}</p></div></div>)}
+                        </div>
+                    </Card>
 
-                </div>
-
-            </main>
-
+                    <footer className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.015] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400"><Sparkles size={15}/></div><div><p className="text-xs font-medium text-white/60">Financial snapshot</p><p className="text-[10px] text-white/25">Keep tracking your spending to improve your financial health.</p></div></div><span className="text-[9px] font-bold tracking-[0.24em] text-white/20">FINORA</span></footer>
+                </main>
+            </div>
         </div>
     )
 }
