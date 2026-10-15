@@ -19,7 +19,7 @@ import {
 
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-
+import { useCurrency } from "../hooks/useCurrency";
 import {
     Area,
     AreaChart,
@@ -56,6 +56,7 @@ import {
 import {
     buildMonthComparison,
 } from "@/utils/monthComparison"
+import {useNavigate} from "react-router-dom";
 
 
 function Dashboard() {
@@ -66,6 +67,14 @@ function Dashboard() {
     const [selectedDate, setSelectedDate] = useState(
         () => new Date()
     )
+
+    const { currency, formatCurrency } = useCurrency();
+
+    const currencySymbol =
+        currency === "INR" ? "₹" :
+            currency === "USD" ? "$" :
+                currency === "EUR" ? "€" :
+                    currency === "GBP" ? "£" : "₹";
 
     const selectedYear = selectedDate.getFullYear()
     const selectedMonth = selectedDate.getMonth()
@@ -853,6 +862,8 @@ function Dashboard() {
         )
     }
 
+    const navigate = useNavigate();
+
     // =====================================================
     // DASHBOARD
     // =====================================================
@@ -933,7 +944,10 @@ function Dashboard() {
                                             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Available balance</p>
                                         </div>
                                         <div className="mt-4 text-4xl font-bold tracking-[-0.055em] text-white sm:text-5xl lg:text-6xl">
-                                            <AnimatedNumber value={Number(summary?.balance) || 0} prefix="₹" />
+                                            <AnimatedNumber
+                                                value={Number(summary?.balance) || 0}
+                                                prefix={currencySymbol}
+                                            />
                                         </div>
                                         <div className="mt-3 flex flex-wrap items-center gap-2">
                                             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/10 bg-emerald-400/[0.08] px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
@@ -1010,7 +1024,17 @@ function Dashboard() {
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0">
                                             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">{item.label}</p>
-                                            <p className={`mt-3 text-2xl font-bold tracking-[-0.04em] ${item.label === savingsLabel ? (comparison.current.savings >= 0 ? "text-emerald-400" : "text-rose-400") : "text-white"}`}>₹{item.amount.toLocaleString("en-IN")}</p>
+                                            <p
+                                                className={`mt-3 text-2xl font-bold tracking-[-0.04em] ${
+                                                    item.label === savingsLabel
+                                                        ? comparison.current.savings >= 0
+                                                            ? "text-emerald-400"
+                                                            : "text-rose-400"
+                                                        : "text-white"
+                                                }`}
+                                            >
+                                                {formatCurrency(item.amount)}
+                                            </p>
                                         </div>
                                         <span className={`rounded-xl p-2.5 ${item.positive ? "bg-emerald-400/10 text-emerald-400" : "bg-rose-400/10 text-rose-400"}`}><Icon size={16}/></span>
                                     </div>
@@ -1034,7 +1058,9 @@ function Dashboard() {
                             <div className="mt-6 grid gap-3 lg:grid-cols-3">
                                 <div className="rounded-2xl border border-white/[0.06] bg-black/15 p-5"><p className="text-[10px] uppercase tracking-[0.15em] text-white/25">Spending trend</p><p className="mt-3 text-sm leading-6 text-white/60">{expenseInsight}</p></div>
                                 <div className="rounded-2xl border border-white/[0.06] bg-black/15 p-5"><p className="text-[10px] uppercase tracking-[0.15em] text-white/25">Savings trend</p><p className="mt-3 text-sm leading-6 text-white/60">{savingsInsight}</p></div>
-                                <div className="rounded-2xl border border-white/[0.06] bg-black/15 p-5"><p className="text-[10px] uppercase tracking-[0.15em] text-white/25">Largest category</p>{biggestCategory ? <><p className="mt-3 text-base font-bold text-white">{biggestCategory.category}</p><p className="mt-1 text-xs text-white/35">₹{formatMoney(biggestCategory.amount)} spent this month</p></> : <p className="mt-3 text-sm text-white/30">No expense data yet</p>}</div>
+                                <div className="rounded-2xl border border-white/[0.06] bg-black/15 p-5"><p className="text-[10px] uppercase tracking-[0.15em] text-white/25">Largest category</p>{biggestCategory ? <><p className="mt-3 text-base font-bold text-white">{biggestCategory.category}</p><p className="mt-1 text-xs text-white/35">
+                                    {formatCurrency(biggestCategory.amount)} spent this month
+                                </p></> : <p className="mt-3 text-sm text-white/30">No expense data yet</p>}</div>
                             </div>
                         </div>
                     </section>
@@ -1051,10 +1077,17 @@ function Dashboard() {
                         <Card className="min-w-0 rounded-[28px] border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl sm:p-7">
                             <div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25">Spending breakdown</p><h3 className="mt-1 text-lg font-semibold">Where your money goes</h3></div>
                             <div className="relative mt-3 h-[230px] min-w-0">
-                                {categoryData.length > 0 ? <><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={62} outerRadius={88} paddingAngle={4} stroke="none">{categoryData.map((entry,index)=><Cell key={`${entry.name}-${index}`} fill={["#a78bfa","#34d399","#60a5fa","#fb7185","#fbbf24"][index%5]}/>)}</Pie><Tooltip contentStyle={{background:"#101116",border:"1px solid rgba(255,255,255,.09)",borderRadius:"16px",fontSize:12}}/></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 flex items-center justify-center"><div className="text-center"><p className="text-xl font-bold tracking-[-.04em]">₹{formatMoney(selectedMonthExpense)}</p><p className="mt-0.5 text-[9px] uppercase tracking-[.18em] text-white/25">spent</p></div></div></> : <div className="flex h-full items-center justify-center text-xs text-white/25">No spending data yet.</div>}
+                                {categoryData.length > 0 ? <><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={62} outerRadius={88} paddingAngle={4} stroke="none">{categoryData.map((entry,index)=><Cell key={`${entry.name}-${index}`} fill={["#a78bfa","#34d399","#60a5fa","#fb7185","#fbbf24"][index%5]}/>)}</Pie><Tooltip contentStyle={{background:"#101116",border:"1px solid rgba(255,255,255,.09)",borderRadius:"16px",fontSize:12}}/></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 flex items-center justify-center"><div className="text-center"><p className="text-xl font-bold tracking-[-.04em]">
+                                    {formatCurrency(selectedMonthExpense)}
+                                </p><p className="mt-0.5 text-[9px] uppercase tracking-[.18em] text-white/25">spent</p></div></div></> : <div className="flex h-full items-center justify-center text-xs text-white/25">No spending data yet.</div>}
                             </div>
                             <div className="mt-3 space-y-2.5">
-                                {categoryData.slice(0,4).map((category,index)=>{ const percentage=selectedMonthExpense>0?(category.value/selectedMonthExpense)*100:0; return <div key={category.name} className="flex items-center gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.045] text-violet-300">{getCategoryIcon(category.name)}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><p className="truncate text-xs font-medium text-white/70">{category.name}</p><p className="shrink-0 text-xs font-semibold text-white/65">₹{formatMoney(category.value)}</p></div><div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/[0.05]"><div className="h-full rounded-full bg-violet-400/70" style={{width:`${Math.min(100,percentage)}%`}}/></div></div></div>})}
+                                {categoryData.slice(0,4).map((category,index)=>{ const percentage=selectedMonthExpense>0?(category.value/selectedMonthExpense)*100:0; return <div key={category.name} className="flex items-center gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.045] text-violet-300">{getCategoryIcon(category.name)}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><p className="truncate text-xs font-medium text-white/70">{category.name}</p>
+                                    <p className="shrink-0 text-xs font-semibold text-white/65">
+                                        {formatCurrency(category.value)}
+                                    </p></div>
+                                    <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/[0.05]">
+                                        <div className="h-full rounded-full bg-violet-400/70" style={{width:`${Math.min(100,percentage)}%`}}/></div></div></div>})}
                             </div>
                         </Card>
                     </section>
@@ -1072,11 +1105,22 @@ function Dashboard() {
                     <section className="rounded-[28px] border border-white/[0.08] bg-white/[0.025] p-6 backdrop-blur-xl sm:p-7">
                         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                             <div><div className="flex items-center gap-2"><p className="text-[9px] font-bold uppercase tracking-[0.22em] text-violet-300/70">Budget health</p><span className="rounded-full bg-violet-400/10 px-2 py-0.5 text-[9px] text-violet-300">{selectedMonthLabel}</span></div><h2 className="mt-2 text-xl font-bold tracking-[-.025em]">Stay within your limits</h2><p className="mt-1 text-xs text-white/30">Track your spending against your monthly budgets.</p></div>
-                            <div className="min-w-[170px] lg:text-right"><p className="text-[10px] text-white/25">Overall usage</p><p className="mt-1 text-2xl font-bold">{overallBudgetPercentage.toFixed(0)}%</p><p className="mt-1 text-[10px] text-white/25">₹{formatMoney(totalBudgetSpent)} / ₹{formatMoney(totalBudget)}</p></div>
+                            <div className="min-w-[170px] lg:text-right"><p className="text-[10px] text-white/25">Overall usage</p><p className="mt-1 text-2xl font-bold">{overallBudgetPercentage.toFixed(0)}%</p>
+                                <p className="mt-1 text-[10px] text-white/25">
+                                    {formatCurrency(totalBudgetSpent)} / {formatCurrency(totalBudget)}
+                                </p></div>
                         </div>
                         <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/[0.05]"><div className={`h-full rounded-full transition-all duration-700 ${overallBudgetPercentage>=100?"bg-rose-400":overallBudgetPercentage>=85?"bg-amber-400":"bg-emerald-400"}`} style={{width:`${displayOverallBudgetPercentage}%`}}/></div>
                         <div className="mt-6 grid gap-3 lg:grid-cols-2">
-                            {budgetsError ? <div className="lg:col-span-2 rounded-2xl border border-rose-500/10 bg-rose-500/5 p-8 text-center text-sm text-rose-300">Unable to load budgets.</div> : budgetHealth.length===0 ? <div className="lg:col-span-2 rounded-2xl border border-dashed border-white/[0.08] p-10 text-center"><Wallet size={20} className="mx-auto text-violet-400"/><p className="mt-3 text-sm font-medium">No budgets created</p><p className="mt-1 text-xs text-white/25">Create a budget for {selectedMonthLabel} to start tracking your limits.</p></div> : budgetHealth.map((budget)=>{ const status=getBudgetStatus(budget.percentage); const categoryName=typeof budget.category==="string"?budget.category:budget.category&&typeof budget.category==="object"?budget.category.name??"Uncategorized":"Uncategorized"; return <div key={budget.id} className="rounded-2xl border border-white/[0.07] bg-black/10 p-5 transition hover:border-white/[0.12] hover:bg-white/[0.025]"><div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="truncate text-sm font-semibold">{categoryName}</p><p className="mt-1 text-[10px] text-white/25">₹{formatMoney(budget.spent)} / ₹{formatMoney(budget.limit)}</p></div><div className="text-right"><p className="text-sm font-bold">{budget.percentage.toFixed(0)}%</p><p className={`mt-1 text-[10px] font-semibold ${status.className}`}>{status.label}</p></div></div><div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.05]"><div className={`h-full rounded-full ${budget.percentage>=100?"bg-rose-400":budget.percentage>=85?"bg-amber-400":"bg-emerald-400"}`} style={{width:`${budget.displayPercentage}%`}}/></div><div className="mt-3 flex justify-between text-[10px]"><span className="text-white/20">Remaining</span><span className={budget.remaining<0?"text-rose-400":"text-white/45"}>₹{formatMoney(Math.abs(budget.remaining))}{budget.remaining<0?" over":""}</span></div></div>})}
+                            {budgetsError ? <div className="lg:col-span-2 rounded-2xl border border-rose-500/10 bg-rose-500/5 p-8 text-center text-sm text-rose-300">Unable to load budgets.</div> : budgetHealth.length===0 ? <div className="lg:col-span-2 rounded-2xl border border-dashed border-white/[0.08] p-10 text-center"><Wallet size={20} className="mx-auto text-violet-400"/><p className="mt-3 text-sm font-medium">No budgets created</p><p className="mt-1 text-xs text-white/25">Create a budget for {selectedMonthLabel} to start tracking your limits.</p></div> : budgetHealth.map((budget)=>{ const status=getBudgetStatus(budget.percentage); const categoryName=typeof budget.category==="string"?budget.category:budget.category&&typeof budget.category==="object"?budget.category.name??"Uncategorized":"Uncategorized"; return <div key={budget.id} className="rounded-2xl border border-white/[0.07] bg-black/10 p-5 transition hover:border-white/[0.12] hover:bg-white/[0.025]"><div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="truncate text-sm font-semibold">{categoryName}</p><p className="mt-1 text-[10px] text-white/25">
+                                {formatCurrency(budget.spent)} / {formatCurrency(budget.limit)}
+                            </p></div>
+                                <div className="text-right"><p className="text-sm font-bold">{budget.percentage.toFixed(0)}%</p><p className={`mt-1 text-[10px] font-semibold ${status.className}`}>{status.label}</p></div></div><div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.05]"><div className={`h-full rounded-full ${budget.percentage>=100?"bg-rose-400":budget.percentage>=85?"bg-amber-400":"bg-emerald-400"}`} style={{width:`${budget.displayPercentage}%`}}/></div><div className="mt-3 flex justify-between text-[10px]"><span className="text-white/20">Remaining</span><span className={budget.remaining < 0 ? "text-rose-400" : "text-white/45"}>
+    {formatCurrency(Math.abs(budget.remaining))}
+                                {budget.remaining < 0 ? " over" : ""}
+</span></div>
+                            </div>
+                            })}
                         </div>
                     </section>
 
@@ -1089,19 +1133,34 @@ function Dashboard() {
                         <div className="grid grid-cols-2 gap-3">
                             <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5"><p className="text-[10px] text-white/25">Savings rate</p><p className="mt-3 text-2xl font-bold">{monthlySavingsRate.toFixed(0)}%</p></div>
                             <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5"><p className="text-[10px] text-white/25">Budget use</p><p className="mt-3 text-2xl font-bold">{overallBudgetPercentage.toFixed(0)}%</p></div>
-                            <div className="col-span-2 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5"><p className="text-[10px] text-white/25">Monthly net</p><p className={`mt-2 text-xl font-bold ${comparison.current.savings>=0?"text-emerald-400":"text-rose-400"}`}>{comparison.current.savings>=0?"+":"-"}₹{formatMoney(Math.abs(comparison.current.savings))}</p></div>
+                            <div className="col-span-2 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5"><p className="text-[10px] text-white/25">Monthly net</p><p className={`mt-2 text-xl font-bold ${comparison.current.savings>=0?"text-emerald-400":"text-rose-400"}`}>{(comparison.current.savings >= 0 ? "+" : "-") +
+                                formatCurrency(Math.abs(comparison.current.savings))}</p></div>
                         </div>
                     </section>
 
                     {/* RECENT TRANSACTIONS */}
                     <Card className="overflow-hidden rounded-[28px] border-white/[0.08] bg-white/[0.025] backdrop-blur-xl">
-                        <div className="flex flex-col gap-4 border-b border-white/[0.07] p-6 sm:flex-row sm:items-center sm:justify-between sm:p-7"><div><div className="flex items-center gap-2"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25">Activity</p><span className="rounded-full border border-white/[0.07] bg-white/5 px-2 py-0.5 text-[9px] text-white/30">{monthlyTransactions.length}</span></div><h3 className="mt-2 text-lg font-semibold">Recent transactions</h3><p className="mt-1 text-xs text-white/30">Your latest financial activity for {selectedMonthLabel}.</p></div><button className="self-start rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 py-2 text-xs font-semibold text-white/45 transition hover:border-white/15 hover:bg-white/[0.05] hover:text-white">View all <span className="ml-1">→</span></button></div>
+                        <div className="flex flex-col gap-4 border-b border-white/[0.07] p-6 sm:flex-row sm:items-center sm:justify-between sm:p-7"><div><div className="flex items-center gap-2"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25">Activity</p><span className="rounded-full border border-white/[0.07] bg-white/5 px-2 py-0.5 text-[9px] text-white/30">{monthlyTransactions.length}</span></div><h3 className="mt-2 text-lg font-semibold">Recent transactions</h3><p className="mt-1 text-xs text-white/30">Your latest financial activity for {selectedMonthLabel}.</p></div><button className="self-start rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 py-2 text-xs font-semibold text-white/45 transition hover:border-white/15 hover:bg-white/[0.05] hover:text-white" onClick={() => navigate("/transactions")}>View all <span className="ml-1">→</span></button></div>
                         <div className="divide-y divide-white/[0.05]">
-                            {monthlyTransactions.length===0 ? <div className="px-6 py-16 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.035] text-white/25"><Wallet size={22}/></div><p className="mt-4 font-medium">No transactions in {selectedMonthLabel}</p><p className="mt-1 text-xs text-white/30">Add a transaction or select another month.</p><Button className="mt-5 rounded-xl bg-white text-black hover:bg-white/90"><Plus size={15} className="mr-1.5"/>Add transaction</Button></div> : monthlyTransactions.slice(0,6).map((transaction,index)=><div key={transaction.id} className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 transition hover:bg-white/[0.025] sm:px-7"><div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${transaction.type==="INCOME"?"border-emerald-400/10 bg-emerald-400/[0.08] text-emerald-400":"border-white/[0.08] bg-white/[0.035] text-white/50"}`}>{getCategoryIcon(transaction.category)}</div><div className="min-w-0"><div className="flex min-w-0 items-center gap-2"><p className="truncate text-sm font-semibold text-white">{transaction.title||"Untitled transaction"}</p>{index===0&&<span className="hidden shrink-0 rounded-full bg-violet-400/10 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-violet-300 sm:inline-flex">Latest</span>}</div><p className="mt-1 truncate text-[10px] text-white/25">{transaction.category||"Other"} · {transaction.date}</p></div><div className="text-right"><p className={`text-sm font-semibold ${transaction.type==="INCOME"?"text-emerald-400":"text-white/85"}`}>{transaction.type==="INCOME"?"+":"-"}₹{formatMoney(Math.abs(Number(transaction.amount)||0))}</p><p className="mt-1 text-[8px] uppercase tracking-[.16em] text-white/20">{transaction.type}</p></div></div>)}
+                            {monthlyTransactions.length===0 ? <div className="px-6 py-16 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.035] text-white/25"><Wallet size={22}/></div><p className="mt-4 font-medium">No transactions in {selectedMonthLabel}</p><p className="mt-1 text-xs text-white/30">Add a transaction or select another month.</p><Button className="mt-5 rounded-xl bg-white text-black hover:bg-white/90"><Plus size={15} className="mr-1.5"/>Add transaction</Button></div> : monthlyTransactions.slice(0,6).map((transaction,index)=><div key={transaction.id} className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 transition hover:bg-white/[0.025] sm:px-7"><div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${transaction.type==="INCOME"?"border-emerald-400/10 bg-emerald-400/[0.08] text-emerald-400":"border-white/[0.08] bg-white/[0.035] text-white/50"}`}>{getCategoryIcon(transaction.category)}</div><div className="min-w-0"><div className="flex min-w-0 items-center gap-2"><p className="truncate text-sm font-semibold text-white">{transaction.title||"Untitled transaction"}</p>{index===0&&<span className="hidden shrink-0 rounded-full bg-violet-400/10 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-violet-300 sm:inline-flex">Latest</span>}</div><p className="mt-1 truncate text-[10px] text-white/25">{transaction.category||"Other"} · {transaction.date}</p></div><div className="text-right"><p
+                                className={`text-sm font-semibold ${
+                                    transaction.type === "INCOME"
+                                        ? "text-emerald-400"
+                                        : "text-white/85"
+                                }`}
+                            >
+                                {transaction.type === "INCOME" ? "+" : "-"}
+                                {formatCurrency(Math.abs(Number(transaction.amount) || 0))}
+                            </p><p
+                                className="mt-1 text-[8px] uppercase tracking-[.16em] text-white/20">{transaction.type}</p>
+                            </div>
+                            </div>)}
                         </div>
                     </Card>
 
-                    <footer className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.015] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400"><Sparkles size={15}/></div><div><p className="text-xs font-medium text-white/60">Financial snapshot</p><p className="text-[10px] text-white/25">Keep tracking your spending to improve your financial health.</p></div></div><span className="text-[9px] font-bold tracking-[0.24em] text-white/20">FINORA</span></footer>
+                    <footer
+                        className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.015] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400"><Sparkles size={15}/></div><div><p className="text-xs font-medium text-white/60">Financial snapshot</p><p className="text-[10px] text-white/25">Keep tracking your spending to improve your financial health.</p></div></div><span className="text-[9px] font-bold tracking-[0.24em] text-white/20">FINORA</span></footer>
                 </main>
             </div>
         </div>
