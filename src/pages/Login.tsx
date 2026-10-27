@@ -78,7 +78,7 @@ export default function Login() {
                     location.state as
                         { from?: string }
                         | null
-                )?.from || "/"
+                )?.from || "/dashboard"
 
 
             navigate(

@@ -83,3 +83,22 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+.input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    background: rgb(255 255 255 / 0.05);
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    color: white;
+    outline: none;
+}
+
+.input::placeholder {
+    color: rgb(82 82 91);
+}
+
+.input:focus {
+    border-color: rgb(139 92 246 / 0.5);
+}

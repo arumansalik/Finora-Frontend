@@ -5,14 +5,14 @@ import {
     Navigate,
 } from "react-router-dom"
 
-
+import FinancialHealth from "./pages/FinancialHealth";
 import AppLayout
     from "@/components/layout/AppLayout"
 
 import ProtectedRoute
     from "@/component/auth/ProtectedRoute"
-
-
+import LandingPage from "@/pages/LandingPage";
+import SavingsGoals from "./pages/SavingsGoals";
 import Login
     from "./pages/Login"
 
@@ -31,9 +31,7 @@ import Analytics
 import Budgets
     from "./pages/Budgets"
 
-import Goals
-    from "./pages/Goals"
-
+import Notifications from "./pages/Notifications";
 import Recurring
     from "./pages/Recurring"
 
@@ -44,18 +42,16 @@ import Settings
     from "./pages/Settings"
 
 
+
 function App() {
-
     return (
-
         <BrowserRouter>
-
             <Routes>
-
-
-                {/* ================================================= */}
-                {/* PUBLIC ROUTES */}
-                {/* ================================================= */}
+                {/* Public routes */}
+                <Route
+                    path="/landing"
+                    element={<LandingPage />}
+                />
 
                 <Route
                     path="/login"
@@ -67,103 +63,75 @@ function App() {
                     element={<Register />}
                 />
 
-
-                {/* ================================================= */}
-                {/* PROTECTED ROUTES */}
-                {/* ================================================= */}
-
+                {/* Root URL: show landing page */}
                 <Route
-                    element={
-                        <ProtectedRoute />
-                    }
-                >
+                    path="/"
+                    element={<LandingPage />}
+                />
 
-                    <Route
-                        element={
-                            <AppLayout />
-                        }
-                    >
-
+                {/* Protected routes */}
+                <Route element={<ProtectedRoute />}>
+                    <Route element={<AppLayout />}>
                         <Route
-                            path="/"
-                            element={
-                                <Dashboard />
-                            }
+                            path="/dashboard"
+                            element={<Dashboard />}
                         />
 
                         <Route
                             path="/transactions"
-                            element={
-                                <Transactions />
-                            }
+                            element={<Transactions />}
                         />
 
                         <Route
                             path="/analytics"
-                            element={
-                                <Analytics />
-                            }
+                            element={<Analytics />}
                         />
 
                         <Route
                             path="/budgets"
-                            element={
-                                <Budgets />
-                            }
+                            element={<Budgets />}
                         />
 
                         <Route
-                            path="/goals"
-                            element={
-                                <Goals />
-                            }
+                            path="/savings-goals"
+                            element={<SavingsGoals />}
                         />
 
                         <Route
                             path="/recurring"
-                            element={
-                                <Recurring />
-                            }
+                            element={<Recurring />}
+                        />
+
+                        <Route
+                            path="/notifications"
+                            element={<Notifications />}
+                        />
+
+                        <Route
+                            path="/financial-health"
+                            element={<FinancialHealth />}
                         />
 
                         <Route
                             path="/calendar"
-                            element={
-                                <Calendar />
-                            }
+                            element={<Calendar />}
                         />
 
                         <Route
                             path="/settings"
-                            element={
-                                <Settings />
-                            }
+                            element={<Settings />}
                         />
-
                     </Route>
-
                 </Route>
 
-
-                {/* ================================================= */}
-                {/* FALLBACK */}
-                {/* ================================================= */}
-
+                {/* Unknown URLs */}
                 <Route
                     path="*"
-                    element={
-                        <Navigate
-                            to="/"
-                            replace
-                        />
-                    }
+                    element={<Navigate to="/" replace />}
                 />
-
             </Routes>
-
         </BrowserRouter>
-    )
+    );
 }
 
-
-export default App
+export default App;
