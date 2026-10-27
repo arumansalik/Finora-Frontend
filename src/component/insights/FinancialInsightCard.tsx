@@ -1,10 +1,12 @@
 import {
     AlertTriangle,
+    ArrowDownRight,
     ArrowUpRight,
     CheckCircle2,
     Info,
     Lightbulb,
     TrendingUp,
+    WalletCards,
 } from "lucide-react";
 
 import type {
@@ -13,212 +15,390 @@ import type {
 
 interface FinancialInsightCardProps {
     insight: FinancialInsight;
+    featured?: boolean;
 }
 
 const severityConfig = {
     INFO: {
         icon: Info,
-        iconClass:
-            "text-blue-400 bg-blue-500/10 border-blue-500/20",
-        accent:
-            "from-blue-500/10 via-transparent to-transparent",
+        label: "Information",
+        iconClass: "text-sky-300",
+        iconBg: "border-sky-400/15 bg-sky-400/[0.08]",
+        border: "border-sky-400/[0.10]",
+        glow: "bg-sky-500/[0.07]",
+        accent: "bg-sky-400",
+        text: "text-sky-300",
     },
 
     WARNING: {
         icon: AlertTriangle,
-        iconClass:
-            "text-amber-400 bg-amber-500/10 border-amber-500/20",
-        accent:
-            "from-amber-500/10 via-transparent to-transparent",
+        label: "Needs attention",
+        iconClass: "text-amber-300",
+        iconBg: "border-amber-400/15 bg-amber-400/[0.08]",
+        border: "border-amber-400/[0.10]",
+        glow: "bg-amber-500/[0.07]",
+        accent: "bg-amber-400",
+        text: "text-amber-300",
     },
 
     SUCCESS: {
         icon: CheckCircle2,
-        iconClass:
-            "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-        accent:
-            "from-emerald-500/10 via-transparent to-transparent",
+        label: "Looking good",
+        iconClass: "text-emerald-300",
+        iconBg: "border-emerald-400/15 bg-emerald-400/[0.08]",
+        border: "border-emerald-400/[0.10]",
+        glow: "bg-emerald-500/[0.07]",
+        accent: "bg-emerald-400",
+        text: "text-emerald-300",
     },
 };
 
-const typeIcons = {
-    BUDGET: TrendingUp,
-    SAVINGS: CheckCircle2,
-    SPENDING: ArrowUpRight,
-    INCOME: TrendingUp,
+const typeConfig = {
+    BUDGET: {
+        label: "Budget",
+        icon: WalletCards,
+    },
+
+    SAVINGS: {
+        label: "Savings",
+        icon: CheckCircle2,
+    },
+
+    SPENDING: {
+        label: "Spending",
+        icon: ArrowUpRight,
+    },
+
+    INCOME: {
+        label: "Income",
+        icon: TrendingUp,
+    },
 };
 
 export default function FinancialInsightCard({
                                                  insight,
+                                                 featured = false,
                                              }: FinancialInsightCardProps) {
-
     const severity =
-        severityConfig[insight.severity] ??
+        severityConfig[insight.severity as keyof typeof severityConfig] ??
         severityConfig.INFO;
 
     const SeverityIcon = severity.icon;
 
-    const TypeIcon =
-        typeIcons[
-            insight.type as keyof typeof typeIcons
-            ] ?? Lightbulb;
+    const type =
+        typeConfig[insight.type as keyof typeof typeConfig] ?? {
+            label: insight.type,
+            icon: Lightbulb,
+        };
+
+    const TypeIcon = type.icon;
+
+    const percentage = Number(insight.percentage) || 0;
+    const amount = Number(insight.amount) || 0;
+
+    const isPositive =
+        insight.severity === "SUCCESS" ||
+        (insight.type === "SAVINGS" && percentage > 0);
+
+    const progressWidth = Math.min(
+        Math.max(Math.abs(percentage), 0),
+        100
+    );
 
     return (
-        <div
+        <article
             className={`
-        group relative overflow-hidden
-        rounded-2xl
-        border border-white/[0.06]
-        bg-[#0d0f14]
-        p-5
-        transition-all duration-300
-        hover:-translate-y-0.5
-        hover:border-white/[0.12]
-        hover:shadow-2xl
-      `}
+                group relative overflow-hidden
+                rounded-3xl
+                border
+                ${severity.border}
+                bg-[#0c0e13]
+                transition-all duration-300
+                hover:-translate-y-1
+                hover:border-white/[0.12]
+                hover:shadow-[0_20px_60px_rgba(0,0,0,0.35)]
+                ${featured ? "min-h-[290px]" : "min-h-[290px]"}
+            `}
         >
-
-            {/* Background glow */}
+            {/* =====================================================
+                BACKGROUND EFFECTS
+            ===================================================== */}
 
             <div
                 className={`
-          pointer-events-none
-          absolute inset-0
-          bg-gradient-to-br
-          ${severity.accent}
-        `}
+                    pointer-events-none absolute
+                    -right-20 -top-24
+                    h-64 w-64
+                    rounded-full
+                    ${severity.glow}
+                    blur-3xl
+                    transition-all duration-500
+                    group-hover:scale-125
+                `}
             />
 
-            {/* Content */}
+            <div
+                className="
+                    pointer-events-none absolute
+                    inset-x-0 top-0 h-px
+                    bg-gradient-to-r
+                    from-transparent
+                    via-white/[0.10]
+                    to-transparent
+                "
+            />
 
-            <div className="relative">
+            {/* Left accent */}
+            <div
+                className={`
+                    absolute left-0 top-8 bottom-8
+                    w-[2px]
+                    rounded-r-full
+                    ${severity.accent}
+                    opacity-50
+                    transition-all duration-300
+                    group-hover:opacity-100
+                `}
+            />
 
-                {/* Top row */}
+            {/* =====================================================
+                CONTENT
+            ===================================================== */}
+
+            <div className="relative flex h-full flex-col p-5 sm:p-6">
+                {/* =================================================
+                    TOP BAR
+                ================================================= */}
 
                 <div className="flex items-start justify-between gap-4">
-
+                    {/* Severity icon */}
                     <div
                         className={`
-              flex h-10 w-10
-              items-center justify-center
-              rounded-xl
-              border
-              ${severity.iconClass}
-            `}
+                            flex h-11 w-11 shrink-0
+                            items-center justify-center
+                            rounded-2xl
+                            border
+                            ${severity.iconBg}
+                            ${severity.iconClass}
+                            shadow-[0_8px_25px_rgba(0,0,0,0.15)]
+                        `}
                     >
                         <SeverityIcon size={19} />
                     </div>
 
+                    {/* Type */}
                     <div
                         className="
-              flex h-8 w-8
-              items-center justify-center
-              rounded-lg
-              bg-white/[0.03]
-              text-zinc-500
-              transition-colors
-              group-hover:text-zinc-300
-            "
+                            inline-flex items-center gap-1.5
+                            rounded-full
+                            border border-white/[0.07]
+                            bg-white/[0.025]
+                            px-2.5 py-1.5
+                        "
                     >
-                        <TypeIcon size={15} />
-                    </div>
+                        <TypeIcon
+                            size={11}
+                            className="text-zinc-500"
+                        />
 
+                        <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                            {type.label}
+                        </span>
+                    </div>
                 </div>
 
-                {/* Title */}
+                {/* =================================================
+                    LABEL
+                ================================================= */}
 
-                <div className="mt-5">
+                <div className="mt-5 flex items-center gap-2">
+                    <span
+                        className={`
+                            h-1.5 w-1.5 rounded-full
+                            ${severity.accent}
+                        `}
+                    />
 
-                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">
-                        {insight.type}
-                    </p>
+                    <span
+                        className={`
+                            text-[10px]
+                            font-semibold
+                            uppercase
+                            tracking-[0.16em]
+                            ${severity.text}
+                        `}
+                    >
+                        {severity.label}
+                    </span>
+                </div>
 
-                    <h3 className="mt-1 text-base font-semibold text-white">
+                {/* =================================================
+                    TITLE + MESSAGE
+                ================================================= */}
+
+                <div className="mt-2">
+                    <h3
+                        className={`
+                            font-semibold
+                            tracking-tight
+                            text-white
+                            ${
+                            featured
+                                ? "text-xl leading-7"
+                                : "text-base leading-6"
+                        }
+                        `}
+                    >
                         {insight.title}
                     </h3>
 
-                    <p className="mt-2 text-sm leading-6 text-zinc-400">
+                    <p
+                        className={`
+                            mt-2
+                            text-zinc-400
+                            ${
+                            featured
+                                ? "max-w-2xl text-sm leading-6"
+                                : "text-xs leading-5"
+                        }
+                        `}
+                    >
                         {insight.message}
                     </p>
-
                 </div>
 
-                {/* Percentage */}
+                {/* =================================================
+                    METRICS AREA
+                ================================================= */}
 
-                {insight.percentage > 0 && (
-                    <div className="mt-5">
+                <div className="mt-auto pt-6">
+                    {(percentage > 0 || amount > 0) && (
+                        <div
+                            className={`
+                                grid gap-3
+                                ${
+                                percentage > 0 && amount > 0
+                                    ? "sm:grid-cols-2"
+                                    : "grid-cols-1"
+                            }
+                            `}
+                        >
+                            {/* Percentage */}
+                            {percentage > 0 && (
+                                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-3.5">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+                                                {insight.type === "SAVINGS"
+                                                    ? "Goal progress"
+                                                    : "Change"}
+                                            </p>
 
-                        {insight.type === "SAVINGS" ? (
-                            <>
-                                <div className="mb-2 flex items-center justify-between">
+                                            <div className="mt-1 flex items-center gap-1.5">
+                                                {insight.type !== "SAVINGS" &&
+                                                    (percentage > 0 ? (
+                                                        <ArrowUpRight
+                                                            size={13}
+                                                            className={
+                                                                isPositive
+                                                                    ? "text-emerald-400"
+                                                                    : "text-amber-400"
+                                                            }
+                                                        />
+                                                    ) : (
+                                                        <ArrowDownRight
+                                                            size={13}
+                                                            className="text-emerald-400"
+                                                        />
+                                                    ))}
 
-          <span className="text-xs text-zinc-500">
-            Goal progress
-          </span>
+                                                <span className="text-lg font-bold tracking-tight text-white">
+                                                    {percentage.toFixed(1)}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                    <span className="text-xs font-semibold text-zinc-300">
-            {insight.percentage.toFixed(1)}%
-          </span>
-
+                                    {/* Progress */}
+                                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                                        <div
+                                            className={`
+                                                h-full
+                                                rounded-full
+                                                ${severity.accent}
+                                                transition-all
+                                                duration-700
+                                            `}
+                                            style={{
+                                                width: `${progressWidth}%`,
+                                            }}
+                                        />
+                                    </div>
                                 </div>
+                            )}
 
-                                <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                            {/* Amount */}
+                            {amount > 0 && (
+                                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-3.5">
+                                    <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+                                        Amount
+                                    </p>
 
-                                    <div
-                                        className="
-              h-full
-              rounded-full
-              bg-white
-              transition-all
-              duration-700
-            "
-                                        style={{
-                                            width: `${Math.min(
-                                                insight.percentage,
-                                                100
-                                            )}%`,
-                                        }}
-                                    />
+                                    <p className="mt-1 truncate text-lg font-bold tracking-tight text-white">
+                                        ₹
+                                        {amount.toLocaleString("en-IN", {
+                                            maximumFractionDigits: 2,
+                                        })}
+                                    </p>
 
+                                    <p className="mt-0.5 text-[10px] text-zinc-600">
+                                        Financial impact
+                                    </p>
                                 </div>
-                            </>
-                        ) : (
-                            <div className="flex items-center gap-2">
+                            )}
+                        </div>
+                    )}
 
-        <span className="text-xs text-zinc-500">
-          Month-over-month
-        </span>
+                    {/* =================================================
+                        BOTTOM STATUS
+                    ================================================= */}
 
-                                <span className="text-xs font-semibold text-zinc-300">
-          {insight.percentage.toFixed(1)}%
-        </span>
+                    <div className="mt-4 flex items-center justify-between border-t border-white/[0.05] pt-3">
+                        <span className="text-[10px] text-zinc-600">
+                            Finora intelligence
+                        </span>
 
-                            </div>
-                        )}
+                        <div
+                            className={`
+                                flex items-center gap-1.5
+                                text-[10px]
+                                font-medium
+                                ${severity.text}
+                                opacity-60
+                                transition-opacity
+                                group-hover:opacity-100
+                            `}
+                        >
+                            <SparkleDot />
 
+                            Active insight
+                        </div>
                     </div>
-                )}
-
-                {/* Amount */}
-
-                {insight.amount > 0 && (
-                    <div className="mt-5 flex items-center justify-between border-t border-white/[0.06] pt-4">
-
-            <span className="text-xs text-zinc-500">
-              Amount
-            </span>
-
-                        <span className="text-sm font-semibold text-white">
-              ₹
-                            {insight.amount.toLocaleString("en-IN", {
-                                maximumFractionDigits: 2,
-                            })}
-            </span>
-
-                    </div>
-                )}
-
+                </div>
             </div>
-        </div>
+        </article>
+    );
+}
+
+/* =============================================================
+   SMALL DECORATIVE DOT
+============================================================= */
+
+function SparkleDot() {
+    return (
+        <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-30" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-current" />
+        </span>
     );
 }
