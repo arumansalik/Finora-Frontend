@@ -11,7 +11,7 @@ import {
     XAxis,
     YAxis,
 } from "recharts"
-
+import { useCurrency } from "@/hooks/useCurrency";
 import {
     ChevronLeft,
     ChevronRight,
@@ -75,69 +75,53 @@ interface CategoryAnalytics {
 // HELPERS
 // =====================================================
 
-const formatCurrency = (
-    value: number
-) => {
-    return `₹${value.toLocaleString(
-        "en-IN",
-        {
-            maximumFractionDigits: 0,
-        }
-    )}`
-}
+
 
 
 // =====================================================
 // TOOLTIP
 // =====================================================
 
+
 const CustomTooltip = ({
                            active,
                            payload,
                            label,
-                       }: any) => {
-
-    if (
-        !active ||
-        !payload ||
-        !payload.length
-    ) {
-        return null
+                           formatCurrency,
+                       }: {
+    active?: boolean;
+    payload?: any[];
+    label?: string;
+    formatCurrency: (value: number) => string;
+}) => {
+    if (!active || !payload || !payload.length) {
+        return null;
     }
 
     return (
         <div className="rounded-xl border border-white/10 bg-[#111318]/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
-
             <p className="mb-2 text-xs font-medium text-white/40">
                 {label}
             </p>
 
-            {payload.map(
-                (
-                    item: any
-                ) => (
-                    <div
-                        key={item.dataKey}
-                        className="flex items-center justify-between gap-8 py-0.5"
-                    >
-                        <span className="text-xs text-white/50">
-                            {item.name}
-                        </span>
+            {payload.map((item: any) => (
+                <div
+                    key={item.dataKey}
+                    className="flex items-center justify-between gap-8 py-0.5"
+                >
+                    <span className="text-xs text-white/50">
+                        {item.name}
+                    </span>
 
-                        <span className="text-xs font-semibold text-white">
-                            {formatCurrency(
-                                Number(
-                                    item.value
-                                )
-                            )}
-                        </span>
-                    </div>
-                )
-            )}
-
+                    <span className="text-xs font-semibold text-white">
+                        {formatCurrency(Number(item.value))}
+                    </span>
+                </div>
+            ))}
         </div>
-    )
-}
+    );
+};
+
 
 
 // =====================================================
@@ -220,6 +204,15 @@ function Analytics() {
         selectedMonth + 1,
         selectedYear
     )
+
+    const { currency, formatCurrency } = useCurrency();
+
+    const currencySymbol =
+        currency === "INR" ? "₹" :
+            currency === "USD" ? "$" :
+                currency === "EUR" ? "€" :
+                    currency === "GBP" ? "£" :
+                        currency;
 
     // =====================================================
     // BUDGET QUERY
@@ -979,32 +972,24 @@ function Analytics() {
                                                 fill: "rgba(255,255,255,0.3)",
                                                 fontSize: 11,
                                             }}
-                                            tickFormatter={(
-                                                value
-                                            ) => {
+                                            tickFormatter={(value) => {
+                                                const numericValue = Number(value);
 
-                                                const numericValue =
-                                                    Number(
-                                                        value
-                                                    )
-
-                                                if (
-                                                    numericValue >=
-                                                    1000
-                                                ) {
-                                                    return `₹${(
-                                                        numericValue /
-                                                        1000
-                                                    ).toFixed(0)}k`
+                                                if (numericValue >= 1000) {
+                                                    return `${currencySymbol}${(
+                                                        numericValue / 1000
+                                                    ).toFixed(0)}k`;
                                                 }
 
-                                                return `₹${numericValue}`
+                                                return `${currencySymbol}${numericValue}`;
                                             }}
                                         />
 
                                         <Tooltip
                                             content={
-                                                <CustomTooltip />
+                                                <CustomTooltip
+                                                    formatCurrency={formatCurrency}
+                                                />
                                             }
                                         />
 
