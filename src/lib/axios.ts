@@ -4,7 +4,7 @@ import axios from "axios"
 const api = axios.create({
 
     baseURL:
-        "http://192.168.1.5:8080/api",
+        "http://localhost:8080/api",
 
     headers: {
         "Content-Type": "application/json",
@@ -48,71 +48,31 @@ api.interceptors.request.use(
 // RESPONSE INTERCEPTOR
 // =====================================================
 
+
 api.interceptors.response.use(
-
-    (response) => {
-
-        return response
-    },
-
+    (response) => response,
     (error) => {
+        const status = error.response?.status;
+        const requestUrl = error.config?.url ?? "";
 
-        const status =
-            error.response?.status
+        // Don't redirect for invalid login or registration attempts.
+        const isAuthRequest =
+            requestUrl.includes("/auth/login") ||
+            requestUrl.includes("/auth/register");
 
+        if (status === 401 && !isAuthRequest) {
+            localStorage.removeItem("finora_token");
+            localStorage.removeItem("finora_user");
 
-        // =================================================
-        // UNAUTHORIZED
-        // =================================================
-
-        if (status === 401) {
-
-            localStorage.removeItem(
-                "finora_token"
-            )
-
-            localStorage.removeItem(
-                "finora_user"
-            )
-
-
-            if (
-                !window.location.pathname.includes(
-                    "/login"
-                )
-            ) {
-
-                window.location.href =
-                    "/login"
+            if (window.location.pathname !== "/login") {
+                window.location.replace("/login");
             }
         }
 
-
-        // =================================================
-        // FORBIDDEN
-        // =================================================
-
-        if (status === 403) {
-
-            console.error(
-                "403 Forbidden:",
-                error.config?.url
-            )
-
-            console.error(
-                "JWT exists:",
-                Boolean(
-                    localStorage.getItem(
-                        "finora_token"
-                    )
-                )
-            )
-        }
-
-
-        return Promise.reject(error)
+        return Promise.reject(error);
     }
-)
+);
+
 
 
 export default api

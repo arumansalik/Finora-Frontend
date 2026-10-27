@@ -2,7 +2,7 @@ import axios from "axios"
 
 
 const API_URL =
-    "http://192.168.1.5:8080/api/auth"
+    "http://localhost:8080/api/auth"
 
 
 // =====================================================
