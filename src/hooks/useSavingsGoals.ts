@@ -10,6 +10,7 @@ import {
     getSavingsGoal,
     getSavingsGoals,
     updateSavingsGoal,
+    type SavingsGoalRequest,
 } from "../services/savingsGoalApi";
 
 export const savingsGoalKeys = {
