@@ -10,7 +10,6 @@ import {
     ShoppingBag,
     Receipt,
     CircleDollarSign,
-    MoreHorizontal,
     TrendingUp,
     TrendingDown,
     Sparkles,
@@ -69,6 +68,8 @@ function Dashboard() {
     )
 
     const { currency, formatCurrency } = useCurrency();
+
+    const navigate = useNavigate();
 
     const currencySymbol =
         currency === "INR" ? "₹" :
@@ -733,25 +734,6 @@ function Dashboard() {
     }
 
     // =====================================================
-    // FORMAT MONEY
-    // =====================================================
-
-    const formatMoney = (
-        amount: number,
-        decimals = false
-    ) => {
-        return Number(amount || 0).toLocaleString(
-            "en-IN",
-            decimals
-                ? {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                }
-                : undefined
-        )
-    }
-
-    // =====================================================
     // CURRENT DATE
     // =====================================================
 
@@ -862,7 +844,7 @@ function Dashboard() {
         )
     }
 
-    const navigate = useNavigate();
+
 
     // =====================================================
     // DASHBOARD
@@ -1082,7 +1064,7 @@ function Dashboard() {
                                 </p><p className="mt-0.5 text-[9px] uppercase tracking-[.18em] text-white/25">spent</p></div></div></> : <div className="flex h-full items-center justify-center text-xs text-white/25">No spending data yet.</div>}
                             </div>
                             <div className="mt-3 space-y-2.5">
-                                {categoryData.slice(0,4).map((category,index)=>{ const percentage=selectedMonthExpense>0?(category.value/selectedMonthExpense)*100:0; return <div key={category.name} className="flex items-center gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.045] text-violet-300">{getCategoryIcon(category.name)}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><p className="truncate text-xs font-medium text-white/70">{category.name}</p>
+                                {categoryData.slice(0,4).map((category)=>{ const percentage=selectedMonthExpense>0?(category.value/selectedMonthExpense)*100:0; return <div key={category.name} className="flex items-center gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.045] text-violet-300">{getCategoryIcon(category.name)}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><p className="truncate text-xs font-medium text-white/70">{category.name}</p>
                                     <p className="shrink-0 text-xs font-semibold text-white/65">
                                         {formatCurrency(category.value)}
                                     </p></div>
